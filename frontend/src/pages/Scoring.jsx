@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { matchApi, inningsApi } from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Undo2, Trophy, RotateCw, AlertCircle, X, UserPlus, ShieldAlert } from 'lucide-react';
+import { Undo2, Trophy, RotateCw, AlertCircle, X, UserPlus, ShieldAlert, Home, User } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -16,7 +16,7 @@ const Scoring = () => {
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Scoring state
   const [extraMode, setExtraMode] = useState(null);
   const [isWicketPending, setIsWicketPending] = useState(false);
@@ -65,7 +65,7 @@ const Scoring = () => {
       is_wicket: isWicket,
       wicket_type: wicketType
     };
-    
+
     if (extrasType === 'nb') {
       data.extras_runs = 1;
       data.runs_scored = runs;
@@ -76,7 +76,7 @@ const Scoring = () => {
       data.extras_runs = runs;
       data.runs_scored = 0;
     }
-    
+
     try {
       await inningsApi.recordBall(inningsId, data);
       setExtraMode(null);
@@ -133,27 +133,24 @@ const Scoring = () => {
     }
   };
 
+  const timelineRef = useRef(null);
+
+  useEffect(() => {
+    if (timelineRef.current) {
+      timelineRef.current.scrollLeft = timelineRef.current.scrollWidth;
+    }
+  }, [match?.current_innings_data?.balls?.length]);
+
   // Automatically clear wicket pending state if we've entered LMS or have no more players
   useEffect(() => {
-    // We need to calculate these values here or use them from state if they were available
-    // But since they depend on the match object which might be null, we check for match first.
     if (match && isWicketPending) {
       const currentInnings = match.current_innings_data;
       if (currentInnings) {
-        const availableBatsmenCount = currentInnings.batting_team_players?.filter(p => 
+        const availableCount = currentInnings.batting_team_players?.filter(p =>
           !currentInnings.batting_scores.some(bs => bs.player === p.id)
         ).length || 0;
-        
-        const strikerAtCrease = currentInnings.batting_scores?.find(b => b.is_striker && b.is_at_crease);
-        const nonStrikerAtCrease = currentInnings.batting_scores?.find(b => !b.is_striker && b.is_at_crease);
-        const atCreaseCount = (strikerAtCrease ? 1 : 0) + (nonStrikerAtCrease ? 1 : 0);
-        
-        const isLMS = match.last_man_stands && (
-          (currentInnings.total_wickets === (currentInnings.batting_team_players?.length || 0) - 1) ||
-          (availableBatsmenCount === 0 && atCreaseCount === 1)
-        );
 
-        if (isLMS || availableBatsmenCount === 0) {
+        if (availableCount === 0) {
           setIsWicketPending(false);
         }
       }
@@ -168,32 +165,27 @@ const Scoring = () => {
   const nonStriker = currentInnings?.batting_scores?.find(b => !b.is_striker && b.is_at_crease);
   const currentBowler = currentInnings?.bowling_scores?.find(b => b.is_current);
 
-  const availableBatsmen = currentInnings?.batting_team_players?.filter(p => 
+  const availableBatsmen = currentInnings?.batting_team_players?.filter(p =>
     !currentInnings.batting_scores.some(bs => bs.player === p.id)
   ) || [];
 
   const overEnded = currentInnings && currentInnings.total_balls > 0 && currentInnings.total_balls % 6 === 0;
   const lastBall = currentInnings?.balls?.length > 0 ? currentInnings.balls[currentInnings.balls.length - 1] : null;
   const lastBallWasLegal = lastBall && !(['wd', 'nb'].includes(lastBall.extras_type));
-  
-  // LMS is active if it's enabled and either:
-  // 1. We've reached the second-to-last wicket count
-  // 2. We only have one player at the crease and no one else left to bat
-  const isLMSActive = match.last_man_stands && (
-    (currentInnings?.total_wickets === (currentInnings?.batting_team_players?.length || 0) - 1) ||
-    (availableBatsmen.length === 0 && (striker ? 1 : 0) + (nonStriker ? 1 : 0) === 1)
-  );
+
+  // LMS is active if it's enabled and we have no more batsmen available in the dugout
+  const isLMSActive = match.last_man_stands && availableBatsmen.length === 0;
 
   const isBowlerChangeRequired = overEnded && lastBallWasLegal && currentBowler?.player === lastBall?.bowler;
   const isInitialSetupRequired = currentInnings && (
-    !striker || 
-    (!nonStriker && !isLMSActive) || 
+    !striker ||
+    (!nonStriker && !isLMSActive) ||
     !currentBowler
   );
 
   const isWicketPromptRequired = isWicketPending && !isLMSActive && availableBatsmen.length > 0;
 
-  
+
   const isMatchCompleted = match.status === 'completed';
 
   return (
@@ -233,7 +225,7 @@ const Scoring = () => {
 
       <header className="flex justify-between items-center mb-6">
         <button onClick={() => navigate('/')} className="p-2 glass rounded-lg text-secondary hover:text-white transition-colors">
-          <RotateCw className="w-5 h-5" />
+          <Home className="w-5 h-5" />
         </button>
         <div className="text-center">
           <p className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-1">
@@ -297,16 +289,24 @@ const Scoring = () => {
               </div>
             </div>
             <div className="flex justify-between items-center py-4 border-t border-white/5">
-              <div className="flex gap-6">
-                <div>
-                  <p className="text-[8px] text-secondary font-black uppercase tracking-widest mb-1">CRR</p>
-                  <p className="text-sm font-black tabular-nums">{(currentInnings.total_runs / (currentInnings.total_balls / 6 || 1)).toFixed(2)}</p>
+              <div className="flex gap-2">
+                <div className="px-3 py-1.5 bg-white/5 rounded-lg border border-white/5">
+                  <p className="text-[7px] text-secondary font-black uppercase tracking-widest mb-0.5">CRR</p>
+                  <p className="text-xs font-black tabular-nums">{(currentInnings.total_runs / (currentInnings.total_balls / 6 || 1)).toFixed(2)}</p>
                 </div>
                 {currentInnings.target && (
-                  <div>
-                    <p className="text-[8px] text-accent font-black uppercase tracking-widest mb-1">TARGET</p>
-                    <p className="text-sm font-black tabular-nums text-accent">{currentInnings.target}</p>
-                  </div>
+                  <>
+                    <div className="px-3 py-1.5 bg-accent/10 rounded-lg border border-accent/20">
+                      <p className="text-[7px] text-accent font-black uppercase tracking-widest mb-0.5">TARGET</p>
+                      <p className="text-xs font-black tabular-nums text-accent">{currentInnings.target}</p>
+                    </div>
+                    <div className="px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
+                      <p className="text-[7px] text-primary font-black uppercase tracking-widest mb-0.5">RRR</p>
+                      <p className="text-xs font-black tabular-nums text-primary">
+                        {Math.max(0, (currentInnings.target - currentInnings.total_runs) / ((match.overs * 6 - currentInnings.total_balls) / 6 || 1)).toFixed(2)}
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
               {currentInnings.target && (
@@ -316,11 +316,18 @@ const Scoring = () => {
           </motion.div>
 
           {/* Timeline */}
-          <div className="mb-6 flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1">
+          <div ref={timelineRef} className="mb-6 flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1 scroll-smooth">
             <AnimatePresence mode="popLayout">
               {currentInnings?.balls?.slice(-20).map((ball, idx, arr) => (
-                <React.Fragment key={ball.id}>
-                  {(idx === 0 || ball.over_no !== arr[idx-1].over_no) && (
+                <motion.div 
+                  layout
+                  key={ball.id} 
+                  initial={{ scale: 0, opacity: 0 }} 
+                  animate={{ scale: 1, opacity: 1 }} 
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="flex items-center gap-2"
+                >
+                  {(idx === 0 || ball.over_no !== arr[idx - 1].over_no) && (
                     <div className="flex items-center gap-2 px-2 border-l border-white/10 first:border-0 ml-1">
                       <div className="flex flex-col">
                         <span className="text-[7px] font-black text-primary uppercase tracking-tighter leading-none mb-0.5">Over {ball.over_no + 1}</span>
@@ -329,16 +336,16 @@ const Scoring = () => {
                       <div className="w-[1px] h-6 bg-white/20 rounded-full" />
                     </div>
                   )}
-                  <motion.div initial={{ scale: 0, x: 20 }} animate={{ scale: 1, x: 0 }}
+                  <div
                     className={cn(
                       "min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border transition-all",
-                      ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" : 
-                      ball.runs_scored >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-white/5 border-white/10 text-secondary"
+                      ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" :
+                        ball.runs_scored >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-white/5 border-white/10 text-secondary"
                     )}
                   >
                     {ball.is_wicket ? 'W' : (ball.extras_type ? `${ball.extras_runs}${ball.extras_type.toUpperCase()}` : ball.runs_scored)}
-                  </motion.div>
-                </React.Fragment>
+                  </div>
+                </motion.div>
               ))}
             </AnimatePresence>
           </div>
@@ -366,7 +373,7 @@ const Scoring = () => {
           {/* Bowler */}
           <div className="glass-card p-4 mb-8 flex justify-between items-center bg-white/5 border-l-4 border-accent/40">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center"><RotateCw className="w-5 h-5 text-accent" /></div>
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center"><User className="w-5 h-5 text-accent" /></div>
               <div>
                 <p className="text-[8px] text-secondary font-black uppercase tracking-[0.2em]">Current Bowler</p>
                 <div className="flex items-center gap-2">
@@ -377,7 +384,7 @@ const Scoring = () => {
             </div>
             <div className="text-right">
               <p className="text-2xl font-black tabular-nums text-accent">{currentBowler?.wickets || 0}<span className="text-lg text-secondary/40 px-1">-</span>{currentBowler?.runs_conceded || 0}</p>
-              <p className="text-[10px] text-secondary font-black tabular-nums uppercase">({Math.floor((currentBowler?.balls_bowled || 0) / 6)}.{ (currentBowler?.balls_bowled || 0) % 6 })</p>
+              <p className="text-[10px] text-secondary font-black tabular-nums uppercase">({Math.floor((currentBowler?.balls_bowled || 0) / 6)}.{(currentBowler?.balls_bowled || 0) % 6})</p>
             </div>
           </div>
 
@@ -393,15 +400,15 @@ const Scoring = () => {
                   ) : (isWicketPending && !isLMSActive) ? (
                     <SelectionList title="Next Batsman" items={availableBatsmen} onSelect={handleSelectNextBatsman} />
                   ) : (isBowlerChangeRequired || !currentBowler) ? (
-                    <SelectionList 
-                      title={isBowlerChangeRequired ? "Mandatory Bowler Change" : "Select Bowler"} 
-                      items={currentInnings.bowling_team_players} 
+                    <SelectionList
+                      title={isBowlerChangeRequired ? "Mandatory Bowler Change" : "Select Bowler"}
+                      items={currentInnings.bowling_team_players}
                       disabledIds={(() => {
                         const currentOver = Math.floor(currentInnings.total_balls / 6);
                         const prevOverBall = currentInnings.balls.filter(b => b.over_no < currentOver).pop();
                         return prevOverBall ? [prevOverBall.bowler] : [];
                       })()}
-                      onSelect={handleSelectBowler} 
+                      onSelect={handleSelectBowler}
                       color="accent"
                     />
                   ) : null}
@@ -418,7 +425,7 @@ const Scoring = () => {
                   </div>
                   <div className="grid grid-cols-5 gap-3">
                     {[0, 1, 2, 3, 4, 6].map(r => (
-                      <button key={r} onClick={() => handleBall(r, extraMode)} className="glass-button h-16 primary-gradient border-none font-black text-xl">{r}</button>
+                      <button key={r} onClick={() => handleBall(r, extraMode)} className="glass-button h-16 flex items-center justify-center primary-gradient border-none font-black text-xl">{r}</button>
                     ))}
                   </div>
                 </motion.div>
@@ -433,9 +440,9 @@ const Scoring = () => {
                       const currentOver = Math.floor(currentInnings.total_balls / 6);
                       const prevOverBall = currentInnings.balls.filter(b => b.over_no < currentOver).pop();
                       const disabledId = prevOverBall ? prevOverBall.bowler : null;
-                      
+
                       return currentInnings.bowling_team_players.map(p => (
-                        <button key={p.id} disabled={disabledId === p.id} onClick={() => handleSelectBowler(p.id)} 
+                        <button key={p.id} disabled={disabledId === p.id} onClick={() => handleSelectBowler(p.id)}
                           className={cn("glass-button py-4 text-sm font-black border-white/10", disabledId === p.id ? "opacity-20 grayscale cursor-not-allowed" : "hover:bg-accent/20")}
                         >{p.name}</button>
                       ));
@@ -447,16 +454,16 @@ const Scoring = () => {
                   <div className="grid grid-cols-4 gap-3">
                     {[0, 1, 2, 3, 4, 6].map(runs => (
                       <button key={runs} onClick={() => handleBall(runs)} className="glass-card h-20 flex flex-col items-center justify-center text-3xl font-black hover:bg-primary/10 transition-all border-white/5">
-                        {runs} <span className="text-[8px] text-secondary/40 font-black mt-1">RUNS</span>
+                        {runs}
                       </button>
                     ))}
-                    <button onClick={() => setExtraMode('wd')} className="glass-card h-20 text-xl font-black text-yellow-500 border-yellow-500/10">WD</button>
-                    <button onClick={() => setExtraMode('nb')} className="glass-card h-20 text-xl font-black text-yellow-500 border-yellow-500/10">NB</button>
+                    <button onClick={() => setExtraMode('wd')} className="glass-card h-20 flex items-center justify-center text-xl font-black text-yellow-500 border-yellow-500/10">WD</button>
+                    <button onClick={() => setExtraMode('nb')} className="glass-card h-20 flex items-center justify-center text-xl font-black text-yellow-500 border-yellow-500/10">NB</button>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <button onClick={() => setExtraMode('b')} className="glass-card h-16 text-xs font-black text-secondary">BYE</button>
-                    <button onClick={() => setExtraMode('lb')} className="glass-card h-16 text-xs font-black text-secondary">LEG BYE</button>
-                    <button onClick={() => handleBall(0, null, true)} className="glass-card h-16 accent-gradient border-none text-xl font-black shadow-lg shadow-accent/20">WICKET</button>
+                    <button onClick={() => setExtraMode('b')} className="glass-card h-16 flex items-center justify-center text-xs font-black text-secondary">BYE</button>
+                    <button onClick={() => setExtraMode('lb')} className="glass-card h-16 flex items-center justify-center text-xs font-black text-secondary">LEG BYE</button>
+                    <button onClick={() => handleBall(0, null, true)} className="glass-card h-16 flex items-center justify-center accent-gradient border-none text-xl font-black shadow-lg shadow-accent/20">WICKET</button>
                   </div>
                 </div>
               )}
@@ -476,7 +483,7 @@ const SelectionList = ({ title, items, onSelect, color = "primary", disabledIds 
     </h4>
     <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
       {items.length > 0 ? items.map(p => (
-        <button key={p.id} disabled={disabledIds.includes(p.id)} onClick={() => onSelect(p.id)} 
+        <button key={p.id} disabled={disabledIds.includes(p.id)} onClick={() => onSelect(p.id)}
           className={cn("glass-button py-4 text-sm font-black border-white/10 transition-all", disabledIds.includes(p.id) ? "opacity-20 grayscale cursor-not-allowed" : color === "primary" ? "hover:bg-primary/20" : "hover:bg-accent/20")}
         >{p.name}</button>
       )) : (

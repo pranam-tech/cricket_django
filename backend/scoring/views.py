@@ -102,12 +102,14 @@ class InningsViewSet(viewsets.GenericViewSet):
         player_id = request.data.get('player_id')
         player = Player.objects.get(id=player_id)
         
-        # Ensure only one striker exists after adding new batsman
-        BattingScore.objects.filter(innings=innings, is_at_crease=True).update(is_striker=False)
+        # If a striker already exists, the new player becomes the non-striker.
+        # Otherwise, the new player becomes the striker.
+        has_striker = BattingScore.objects.filter(innings=innings, is_at_crease=True, is_striker=True).exists()
+        
         BattingScore.objects.update_or_create(
             innings=innings, 
             player=player, 
-            defaults={'is_at_crease': True, 'is_striker': True}
+            defaults={'is_at_crease': True, 'is_striker': not has_striker}
         )
         
         return Response(MatchLiveSerializer(innings.match).data)

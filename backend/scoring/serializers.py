@@ -59,7 +59,7 @@ class MatchLiveSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Match
-        fields = ['id', 'status', 'current_innings_no', 'team1', 'team2', 'team1_name', 'team2_name', 'current_innings_data', 'team1_score', 'team2_score', 'winner', 'winner_name']
+        fields = ['id', 'status', 'current_innings_no', 'team1', 'team2', 'team1_name', 'team2_name', 'current_innings_data', 'team1_score', 'team2_score', 'winner', 'winner_name', 'last_man_stands', 'overs', 'players_per_team']
 
     def get_current_innings_data(self, obj):
         if obj.current_innings_no > 0:

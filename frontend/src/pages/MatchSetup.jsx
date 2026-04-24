@@ -8,7 +8,7 @@ const MatchSetup = () => {
   const [formData, setFormData] = useState({
     team1_name: 'Warriors',
     team2_name: 'Titans',
-    overs: 20,
+    overs: 3,
     last_man_stands: true,
   });
 

@@ -129,7 +129,7 @@ const Home = () => {
                       </p>
                     </div>
                     <p className="text-[10px] text-white/20 font-bold uppercase tabular-nums">
-                      {new Date(match.created_at).toLocaleDateString()}
+                      {new Date(match.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </p>
                   </div>
                 </div>

@@ -61,7 +61,10 @@ const Summary = () => {
           <h1 className="text-4xl font-black mb-2 uppercase italic tracking-tight">
             {match.winner ? `${match.winner_name} WON` : 'MATCH DRAWN'}
           </h1>
-          <div className="h-1 w-20 primary-gradient mx-auto rounded-full" />
+          <div className="h-1 w-20 primary-gradient mx-auto rounded-full mb-4" />
+          <p className="text-[10px] text-secondary font-black uppercase tracking-widest tabular-nums">
+            {new Date(match.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-4 items-center">
