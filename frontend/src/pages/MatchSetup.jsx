@@ -79,7 +79,7 @@ const MatchSetup = () => {
 
         <form onSubmit={handleSubmit} className="space-y-10">
           {/* General Config */}
-          <div className="grid sm:grid-cols-2 gap-8 p-6 bg-white/5 rounded-2xl border border-white/5">
+          <div className="grid sm:grid-cols-2 gap-8 p-6 bg-foreground/5 rounded-2xl border border-foreground/5">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] flex items-center gap-2">
                 <Clock className="w-3 h-3" /> Match Overs
@@ -88,7 +88,7 @@ const MatchSetup = () => {
                 type="number"
                 value={formData.overs}
                 onChange={e => setFormData({ ...formData, overs: parseInt(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-bold"
+                className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-bold"
                 min="1"
                 required
               />
@@ -103,12 +103,12 @@ const MatchSetup = () => {
                 onClick={() => setFormData({ ...formData, last_man_stands: !formData.last_man_stands })}
                 className={cn(
                   "w-12 h-6 rounded-full transition-all relative",
-                  formData.last_man_stands ? "bg-primary" : "bg-white/10"
+                  formData.last_man_stands ? "bg-primary" : "bg-foreground/10"
                 )}
               >
                 <motion.div
                   animate={{ x: formData.last_man_stands ? 24 : 4 }}
-                  className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-md"
+                  className="absolute top-1 w-4 h-4 bg-foreground rounded-full shadow-md"
                 />
               </button>
             </div>
@@ -124,7 +124,7 @@ const MatchSetup = () => {
                   type="text"
                   value={formData.team1_name}
                   onChange={e => setFormData({ ...formData, team1_name: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-4 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
                   required
                 />
               </div>
@@ -141,7 +141,7 @@ const MatchSetup = () => {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 10 }}
                         key={idx}
-                        className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5 group"
+                        className="flex items-center justify-between bg-foreground/5 p-3 rounded-xl border border-foreground/5 group"
                       >
                         <div className="flex items-center gap-3">
                           <User className="w-4 h-4 text-secondary/40" />
@@ -165,7 +165,7 @@ const MatchSetup = () => {
                     onChange={e => setNewPlayer1(e.target.value)}
                     onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addPlayer(1))}
                     placeholder="Player name..."
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm"
+                    className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2 text-sm"
                   />
                   <button
                     type="button"
@@ -186,7 +186,7 @@ const MatchSetup = () => {
                   type="text"
                   value={formData.team2_name}
                   onChange={e => setFormData({ ...formData, team2_name: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-4 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-accent/50"
                   required
                 />
               </div>
@@ -203,7 +203,7 @@ const MatchSetup = () => {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 10 }}
                         key={idx}
-                        className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5 group"
+                        className="flex items-center justify-between bg-foreground/5 p-3 rounded-xl border border-foreground/5 group"
                       >
                         <div className="flex items-center gap-3">
                           <User className="w-4 h-4 text-secondary/40" />
@@ -227,7 +227,7 @@ const MatchSetup = () => {
                     onChange={e => setNewPlayer2(e.target.value)}
                     onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addPlayer(2))}
                     placeholder="Player name..."
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm"
+                    className="flex-1 bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-2 text-sm"
                   />
                   <button
                     type="button"
@@ -248,7 +248,7 @@ const MatchSetup = () => {
             className="w-full py-5 primary-gradient rounded-2xl font-black text-xl flex items-center justify-center gap-3 mt-8 shadow-xl shadow-primary/20"
           >
             {loading ? (
-              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
             ) : (
               <>
                 <Play className="w-6 h-6 fill-current" />

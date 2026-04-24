@@ -36,9 +36,9 @@ const Home = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 relative min-h-screen">
-      <header className="flex justify-between items-center mb-10 mt-4">
-        <motion.div 
+    <div className="max-w-4xl mx-auto p-6 pb-24 relative min-h-screen">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10 mt-4">
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-3"
@@ -53,9 +53,9 @@ const Home = () => {
             </div>
           </div>
         </motion.div>
-        
+
         <Link to="/setup">
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="glass-button flex items-center gap-2 primary-gradient border-none py-3 px-6"
@@ -71,7 +71,7 @@ const Home = () => {
           <Clock className="w-5 h-5 text-primary" />
           Recent Matches
         </h2>
-        
+
         {loading ? (
           <div className="flex flex-col gap-4">
             {[1, 2, 3].map(i => (
@@ -93,44 +93,48 @@ const Home = () => {
                 transition={{ delay: idx * 0.1 }}
                 className="group relative"
               >
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
-                  <button 
-                    onClick={() => setDeleteConfirm(match)}
-                    className="p-2 text-secondary/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                  <Link 
-                    to={match.status === 'completed' ? `/summary/${match.id}` : `/scoring/${match.id}`}
-                    className="p-3 bg-white/5 hover:bg-primary/20 rounded-xl transition-all"
-                  >
-                    <ChevronRight className="w-6 h-6 text-primary" />
-                  </Link>
-                </div>
 
-                <div className="glass-card flex items-center justify-between p-6">
-                  <div className="flex items-center gap-8">
-                    <div className="text-center min-w-[100px]">
-                      <p className="font-bold text-lg">{match.team1_name}</p>
-                      <span className="text-[10px] text-secondary uppercase tracking-widest font-bold">Team A</span>
+                <div className="glass-card flex items-center justify-between p-3 sm:p-6 gap-2 sm:gap-4">
+                  {/* Teams (Left) */}
+                  <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-8 min-w-0">
+                    <div className="text-center min-w-[70px] sm:min-w-[100px]">
+                      <p className="font-bold text-sm sm:text-lg truncate max-w-[80px] sm:max-w-none">{match.team1_name}</p>
+                      <span className="text-[9px] text-secondary uppercase font-bold sm:block hidden">Team A</span>
                     </div>
-                    <div className="text-secondary font-black italic">VS</div>
-                    <div className="text-center min-w-[100px]">
-                      <p className="font-bold text-lg">{match.team2_name}</p>
-                      <span className="text-[10px] text-secondary uppercase tracking-widest font-bold">Team B</span>
+                    <div className="text-secondary font-black italic text-[10px] sm:text-base">VS</div>
+                    <div className="text-center min-w-[70px] sm:min-w-[100px]">
+                      <p className="font-bold text-sm sm:text-lg truncate max-w-[80px] sm:max-w-none">{match.team2_name}</p>
+                      <span className="text-[9px] text-secondary uppercase font-bold sm:block hidden">Team B</span>
                     </div>
                   </div>
-                  
-                  <div className="mr-24 hidden sm:block text-right">
-                    <div className="flex items-center gap-2 justify-end mb-1">
-                      <span className={`w-2 h-2 rounded-full ${match.status === 'live' ? 'bg-green-500' : match.status === 'completed' ? 'bg-primary' : 'bg-secondary'}`} />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-secondary">
+
+                  {/* Status & Time (Middle) */}
+                  <div className="flex-1 text-center px-1 sm:px-4 min-w-0">
+                    <div className="flex items-center gap-1 justify-center mb-0.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${match.status === 'live' ? 'bg-green-500' : match.status === 'completed' ? 'bg-primary' : 'bg-secondary'}`} />
+                      <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-tight sm:tracking-widest text-secondary truncate">
                         {match.status}
                       </p>
                     </div>
-                    <p className="text-[10px] text-foreground/20 font-bold uppercase tabular-nums">
-                      {new Date(match.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                    <p className="text-[8px] sm:text-[10px] text-foreground/50 font-bold uppercase tabular-nums truncate">
+                      {new Date(match.created_at).toLocaleDateString([], { day: '2-digit', month: 'short' })} • {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </p>
+                  </div>
+
+                  {/* Actions (Right) */}
+                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                    <button 
+                      onClick={() => setDeleteConfirm(match)}
+                      className="p-1.5 sm:p-2 text-secondary/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                    >
+                      <Trash2 className="w-4 h-4 sm:w-5 h-5" />
+                    </button>
+                    <Link 
+                      to={match.status === 'completed' ? `/summary/${match.id}` : `/scoring/${match.id}`}
+                      className="p-2 sm:p-3 bg-foreground/5 hover:bg-primary/20 rounded-lg sm:rounded-xl transition-all"
+                    >
+                      <ChevronRight className="w-4 h-4 sm:w-6 h-6 text-primary" />
+                    </Link>
                   </div>
                 </div>
               </motion.div>
@@ -142,13 +146,13 @@ const Home = () => {
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteConfirm && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-6"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               className="glass-card max-w-sm w-full p-8 border-2 border-red-500/20"
@@ -161,13 +165,13 @@ const Home = () => {
                 Are you sure you want to delete the match between <span className="text-foreground font-bold">{deleteConfirm.team1_name}</span> and <span className="text-foreground font-bold">{deleteConfirm.team2_name}</span>? This action cannot be undone.
               </p>
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => setDeleteConfirm(null)}
                   className="flex-1 glass-button py-3 text-secondary"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={() => handleDelete(deleteConfirm.id)}
                   className="flex-1 glass-button py-3 bg-red-500/20 border-red-500/40 text-red-500 font-bold hover:bg-red-500 hover:text-foreground"
                 >

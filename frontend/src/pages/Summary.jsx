@@ -110,13 +110,13 @@ const Summary = () => {
             {/* Timeline in Summary */}
             <section>
               <h4 className="text-sm font-black uppercase tracking-widest text-secondary mb-6">Innings Timeline</h4>
-              <div className="flex gap-6 overflow-x-auto no-scrollbar pb-8 px-1">
+              <div className="flex gap-6 overflow-x-auto pb-8 px-1">
                 {currentInn.balls && currentInn.balls.map((ball, idx, arr) => (
                   <React.Fragment key={ball.id}>
                     {(idx === 0 || ball.over_no !== arr[idx-1].over_no) && (
                       <div className="flex gap-4 items-end">
                         {idx > 0 && (
-                          <div className="w-[2px] h-24 bg-white/5 self-center rounded-full mx-2" />
+                          <div className="w-[2px] h-24 bg-foreground/5 self-center rounded-full mx-2" />
                         )}
                         <div className="flex flex-col gap-3 min-w-max">
                           <p className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">Over {ball.over_no + 1} • {ball.bowler_name}</p>
@@ -127,7 +127,7 @@ const Summary = () => {
                                 className={cn(
                                   "min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border transition-all shadow-sm",
                                   b.is_wicket ? "bg-accent/20 border-accent/40 text-accent shadow-accent/10" : 
-                                  b.runs_scored >= 4 ? "bg-primary/20 border-primary/40 text-primary shadow-primary/10" : "bg-white/5 border-white/10 text-secondary"
+                                  b.runs_scored >= 4 ? "bg-primary/20 border-primary/40 text-primary shadow-primary/10" : "bg-foreground/5 border-foreground/10 text-secondary"
                                 )}
                               >
                                 {b.is_wicket ? 'W' : (b.extras_type ? `${b.extras_runs}${b.extras_type.toUpperCase()}` : b.runs_scored)}
@@ -147,10 +147,10 @@ const Summary = () => {
               <h4 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-secondary mb-6">
                 <User className="w-4 h-4 text-primary" /> Batting Scorecard
               </h4>
-              <div className="glass-card overflow-hidden">
+              <div className="glass-card overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase text-secondary">
+                    <tr className="bg-foreground/5 border-b border-foreground/5 text-[10px] font-black uppercase text-secondary">
                       <th className="px-6 py-4">Batsman</th>
                       <th className="px-6 py-4 text-center">R</th>
                       <th className="px-6 py-4 text-center">B</th>
@@ -159,9 +159,9 @@ const Summary = () => {
                       <th className="px-6 py-4 text-right">SR</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-foreground/5">
                     {currentInn.batting_scores && currentInn.batting_scores.map(bs => (
-                      <tr key={bs.id} className="hover:bg-white/5 transition-colors">
+                      <tr key={bs.id} className="hover:bg-foreground/5 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-black text-sm">{bs.player_name}</p>
                           <p className="text-[10px] text-secondary font-bold italic">{bs.is_out ? `out (${bs.wicket_type})` : 'not out'}</p>
@@ -185,10 +185,10 @@ const Summary = () => {
               <h4 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-secondary mb-6">
                 <Target className="w-4 h-4 text-accent" /> Bowling Figures
               </h4>
-              <div className="glass-card overflow-hidden">
+              <div className="glass-card overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase text-secondary">
+                    <tr className="bg-foreground/5 border-b border-foreground/5 text-[10px] font-black uppercase text-secondary">
                       <th className="px-6 py-4">Bowler</th>
                       <th className="px-6 py-4 text-center">O</th>
                       <th className="px-6 py-4 text-center">M</th>
@@ -197,9 +197,9 @@ const Summary = () => {
                       <th className="px-6 py-4 text-right">ECON</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-foreground/5">
                     {currentInn.bowling_scores && currentInn.bowling_scores.map(bs => (
-                      <tr key={bs.id} className="hover:bg-white/5 transition-colors">
+                      <tr key={bs.id} className="hover:bg-foreground/5 transition-colors">
                         <td className="px-6 py-4 font-black text-sm">{bs.player_name}</td>
                         <td className="px-6 py-4 text-center tabular-nums">
                           {Math.floor(bs.balls_bowled / 6)}.{bs.balls_bowled % 6}

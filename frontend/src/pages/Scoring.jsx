@@ -19,6 +19,7 @@ const Scoring = () => {
 
   // Scoring state
   const [extraMode, setExtraMode] = useState(null);
+  const [activeView, setActiveView] = useState('scoring');
   const [isWicketPending, setIsWicketPending] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -49,6 +50,8 @@ const Scoring = () => {
       setIsProcessing(false);
     }
   };
+
+  // ... (rest of the functions remain same, but I'll make sure they are not duplicated)
 
   const handleBall = async (runs, extrasType = null, isWicket = false, wicketType = 'out') => {
     if (!striker || (!nonStriker && !isLMSActive) || !currentBowler || isProcessing) return;
@@ -240,6 +243,23 @@ const Scoring = () => {
           <Undo2 className="w-5 h-5" />
         </button>
       </header>
+      
+      {match.status !== 'completed' && (
+        <div className="flex bg-foreground/5 p-1 rounded-2xl mb-6 border border-foreground/10">
+          <button 
+            onClick={() => setActiveView('scoring')}
+            className={`flex-1 py-3 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${activeView === 'scoring' ? 'primary-gradient text-white shadow-lg shadow-primary/20' : 'text-secondary hover:text-foreground'}`}
+          >
+            Scoring
+          </button>
+          <button 
+            onClick={() => setActiveView('summary')}
+            className={`flex-1 py-3 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${activeView === 'summary' ? 'primary-gradient text-white shadow-lg shadow-primary/20' : 'text-secondary hover:text-foreground'}`}
+          >
+            Summary
+          </button>
+        </div>
+      )}
 
       {!currentInnings || match.status === 'innings_break' ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-6">
@@ -267,6 +287,15 @@ const Scoring = () => {
             </div>
           </motion.div>
         </div>
+      ) : activeView === 'summary' ? (
+        <div className="space-y-6">
+          <div className="glass-card p-6 text-center">
+             <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
+             <h3 className="text-xl font-black mb-2">Live Match Summary</h3>
+             <p className="text-secondary mb-6">Detailed scorecard is available on the dedicated summary page.</p>
+             <button onClick={() => navigate(`/summary/${matchId}`)} className="w-full glass-button py-3 primary-gradient border-none font-black">View Full Scorecard →</button>
+          </div>
+        </div>
       ) : (
         <>
           <motion.div layoutId="scorecard" className="glass-card mb-4 relative overflow-hidden p-8 border-b-4 border-primary shadow-2xl shadow-primary/10">
@@ -288,9 +317,9 @@ const Scoring = () => {
                 </div>
               </div>
             </div>
-            <div className="flex justify-between items-center py-4 border-t border-white/5">
+            <div className="flex justify-between items-center py-4 border-t border-foreground/5">
               <div className="flex gap-2">
-                <div className="px-3 py-1.5 bg-white/5 rounded-lg border border-white/5">
+                <div className="px-3 py-1.5 bg-foreground/5 rounded-lg border border-foreground/5">
                   <p className="text-[7px] text-secondary/80 font-black uppercase tracking-widest mb-0.5">CRR</p>
                   <p className="text-xs font-black tabular-nums">{(currentInnings.total_runs / (currentInnings.total_balls / 6 || 1)).toFixed(2)}</p>
                 </div>
@@ -316,7 +345,7 @@ const Scoring = () => {
           </motion.div>
 
           {/* Timeline */}
-          <div ref={timelineRef} className="mb-6 flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1 scroll-smooth">
+          <div ref={timelineRef} className="mb-6 flex gap-2 overflow-x-auto pb-2 px-1 scroll-smooth">
             <AnimatePresence mode="popLayout">
               {currentInnings?.balls?.slice(-20).map((ball, idx, arr) => (
                 <motion.div 
@@ -328,19 +357,19 @@ const Scoring = () => {
                   className="flex items-center gap-2"
                 >
                   {(idx === 0 || ball.over_no !== arr[idx - 1].over_no) && (
-                    <div className="flex items-center gap-2 px-2 border-l border-white/10 first:border-0 ml-1">
+                    <div className="flex items-center gap-2 px-2 border-l border-foreground/10 first:border-0 ml-1">
                       <div className="flex flex-col">
                         <span className="text-[7px] font-black text-primary uppercase tracking-tighter leading-none mb-0.5">Over {ball.over_no + 1}</span>
                         <span className="text-[9px] font-black text-secondary truncate max-w-[50px] leading-none">{ball.bowler_name}</span>
                       </div>
-                      <div className="w-[1px] h-6 bg-white/20 rounded-full" />
+                      <div className="w-[1px] h-6 bg-foreground/20 rounded-full" />
                     </div>
                   )}
                   <div
                     className={cn(
                       "min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border transition-all",
                       ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" :
-                        ball.runs_scored >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-white/5 border-white/10 text-secondary"
+                        ball.runs_scored >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-foreground/5 border-foreground/10 text-secondary"
                     )}
                   >
                     {ball.is_wicket ? 'W' : (ball.extras_type ? `${ball.extras_runs}${ball.extras_type.toUpperCase()}` : ball.runs_scored)}
@@ -371,7 +400,7 @@ const Scoring = () => {
           </div>
 
           {/* Bowler */}
-          <div className="glass-card p-4 mb-8 flex justify-between items-center bg-white/5 border-l-4 border-accent/40">
+          <div className="glass-card p-4 mb-8 flex justify-between items-center bg-foreground/5 border-l-4 border-accent/40">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center"><User className="w-5 h-5 text-accent" /></div>
               <div>
@@ -443,7 +472,7 @@ const Scoring = () => {
 
                       return currentInnings.bowling_team_players.map(p => (
                         <button key={p.id} disabled={disabledId === p.id} onClick={() => handleSelectBowler(p.id)}
-                          className={cn("glass-button py-4 text-sm font-black border-white/10", disabledId === p.id ? "opacity-20 grayscale cursor-not-allowed" : "hover:bg-accent/20")}
+                          className={cn("glass-button py-4 text-sm font-black border-foreground/10", disabledId === p.id ? "opacity-20 grayscale cursor-not-allowed" : "hover:bg-accent/20")}
                         >{p.name}</button>
                       ));
                     })()}
@@ -453,7 +482,7 @@ const Scoring = () => {
                 <div className={cn("space-y-4 transition-opacity", (isInitialSetupRequired || isBowlerChangeRequired || isWicketPending) && "opacity-20 pointer-events-none")}>
                   <div className="grid grid-cols-4 gap-3">
                     {[0, 1, 2, 3, 4, 6].map(runs => (
-                      <button key={runs} onClick={() => handleBall(runs)} className="glass-card h-20 flex flex-col items-center justify-center text-3xl font-black hover:bg-primary/10 transition-all border-white/5">
+                      <button key={runs} onClick={() => handleBall(runs)} className="glass-card h-20 flex flex-col items-center justify-center text-3xl font-black hover:bg-primary/10 transition-all border-foreground/5">
                         {runs}
                       </button>
                     ))}
@@ -484,7 +513,7 @@ const SelectionList = ({ title, items, onSelect, color = "primary", disabledIds 
     <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
       {items.length > 0 ? items.map(p => (
         <button key={p.id} disabled={disabledIds.includes(p.id)} onClick={() => onSelect(p.id)}
-          className={cn("glass-button py-4 text-sm font-black border-white/10 transition-all", disabledIds.includes(p.id) ? "opacity-20 grayscale cursor-not-allowed" : color === "primary" ? "hover:bg-primary/20" : "hover:bg-accent/20")}
+          className={cn("glass-button py-4 text-sm font-black border-foreground/10 transition-all", disabledIds.includes(p.id) ? "opacity-20 grayscale cursor-not-allowed" : color === "primary" ? "hover:bg-primary/20" : "hover:bg-accent/20")}
         >{p.name}</button>
       )) : (
         <p className="col-span-2 text-center py-10 text-secondary font-black uppercase tracking-widest text-xs opacity-50">No players available</p>
