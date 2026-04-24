@@ -46,7 +46,7 @@ const Home = () => {
           <div className="flex items-center gap-4">
             <img src="/logo.png" alt="CricTracker Logo" className="w-16 h-16 object-contain" />
             <div>
-              <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/40 tracking-tight">
+              <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/40 tracking-tight">
                 CricTracker
               </h1>
               <p className="text-primary text-xs font-bold uppercase tracking-[0.2em] opacity-80">Professional Scoring Suite</p>
@@ -128,7 +128,7 @@ const Home = () => {
                         {match.status}
                       </p>
                     </div>
-                    <p className="text-[10px] text-white/20 font-bold uppercase tabular-nums">
+                    <p className="text-[10px] text-foreground/20 font-bold uppercase tabular-nums">
                       {new Date(match.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </p>
                   </div>
@@ -158,7 +158,7 @@ const Home = () => {
                 <h3 className="text-2xl font-black uppercase italic">Wait!</h3>
               </div>
               <p className="text-secondary text-sm mb-8 leading-relaxed">
-                Are you sure you want to delete the match between <span className="text-white font-bold">{deleteConfirm.team1_name}</span> and <span className="text-white font-bold">{deleteConfirm.team2_name}</span>? This action cannot be undone.
+                Are you sure you want to delete the match between <span className="text-foreground font-bold">{deleteConfirm.team1_name}</span> and <span className="text-foreground font-bold">{deleteConfirm.team2_name}</span>? This action cannot be undone.
               </p>
               <div className="flex gap-4">
                 <button 
@@ -169,7 +169,7 @@ const Home = () => {
                 </button>
                 <button 
                   onClick={() => handleDelete(deleteConfirm.id)}
-                  className="flex-1 glass-button py-3 bg-red-500/20 border-red-500/40 text-red-500 font-bold hover:bg-red-500 hover:text-white"
+                  className="flex-1 glass-button py-3 bg-red-500/20 border-red-500/40 text-red-500 font-bold hover:bg-red-500 hover:text-foreground"
                 >
                   Delete
                 </button>

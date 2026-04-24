@@ -7,11 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#0f172a",
-        primary: "#3b82f6",
-        secondary: "#64748b",
-        accent: "#f43f5e",
-        glass: "rgba(255, 255, 255, 0.05)",
+        background: "rgb(var(--background) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
+        primary: "var(--primary)",
+        secondary: "var(--secondary)",
+        accent: "var(--accent)",
+        glass: "var(--glass-bg)",
       },
       backdropBlur: {
         xs: "2px",

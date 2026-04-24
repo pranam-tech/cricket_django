@@ -37,12 +37,12 @@ const Summary = () => {
   return (
     <div className="max-w-4xl mx-auto p-6 py-10 min-h-screen bg-background">
       <header className="flex justify-between items-center mb-10">
-        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-secondary hover:text-white transition-colors font-black uppercase text-[10px] tracking-widest">
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-secondary hover:text-foreground transition-colors font-black uppercase text-[10px] tracking-widest">
           <ArrowLeft className="w-4 h-4" /> Back to Home
         </button>
         <div className="flex gap-3">
-          <button className="p-2 glass rounded-lg text-secondary hover:text-white"><Share2 className="w-4 h-4" /></button>
-          <button className="p-2 glass rounded-lg text-secondary hover:text-white"><Download className="w-4 h-4" /></button>
+          <button className="p-2 glass rounded-lg text-secondary hover:text-foreground"><Share2 className="w-4 h-4" /></button>
+          <button className="p-2 glass rounded-lg text-secondary hover:text-foreground"><Download className="w-4 h-4" /></button>
         </div>
       </header>
 
@@ -89,7 +89,7 @@ const Summary = () => {
             <button 
               key={inn.id}
               onClick={() => setActiveTab(idx)}
-              className={`flex-1 py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${activeTab === idx ? 'primary-gradient text-white shadow-lg shadow-primary/20' : 'glass text-secondary hover:text-white'}`}
+              className={`flex-1 py-4 px-6 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${activeTab === idx ? 'primary-gradient shadow-lg shadow-primary/20' : 'glass text-secondary hover:text-foreground'}`}
             >
               {inn.batting_team_name} Innings
             </button>

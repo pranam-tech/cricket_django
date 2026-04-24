@@ -208,7 +208,7 @@ const Scoring = () => {
               <h2 className="text-4xl font-black mb-4">Match Over!</h2>
               <div className="mb-10">
                 {match.winner ? (
-                  <p className="text-2xl font-black text-white uppercase tracking-tight"><span className="text-primary">{match.winner_name}</span> WON!</p>
+                  <p className="text-2xl font-black text-foreground uppercase tracking-tight"><span className="text-primary">{match.winner_name}</span> WON!</p>
                 ) : (
                   <p className="text-2xl font-black text-accent uppercase">IT'S A DRAW!</p>
                 )}
@@ -224,7 +224,7 @@ const Scoring = () => {
       </AnimatePresence>
 
       <header className="flex justify-between items-center mb-6">
-        <button onClick={() => navigate('/')} className="p-2 glass rounded-lg text-secondary hover:text-white transition-colors">
+        <button onClick={() => navigate('/')} className="p-2 glass rounded-lg text-secondary hover:text-foreground transition-colors">
           <Home className="w-5 h-5" />
         </button>
         <div className="text-center">
@@ -233,10 +233,10 @@ const Scoring = () => {
           </p>
           <div className="flex items-center gap-2 justify-center">
             <span className={cn("w-2 h-2 rounded-full", match.status === 'live' ? "bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500")} />
-            <span className="text-[10px] uppercase font-black text-white tracking-widest">{match.status}</span>
+            <span className="text-[10px] uppercase font-black text-foreground tracking-widest">{match.status}</span>
           </div>
         </div>
-        <button onClick={handleUndo} className="p-2 glass rounded-lg text-secondary hover:text-white transition-colors">
+        <button onClick={handleUndo} className="p-2 glass rounded-lg text-secondary hover:text-foreground transition-colors">
           <Undo2 className="w-5 h-5" />
         </button>
       </header>
@@ -252,7 +252,7 @@ const Scoring = () => {
               {match.status === 'innings_break' ? (
                 <>
                   <h3 className="text-2xl font-black mb-2">Innings Break</h3>
-                  <p className="text-secondary text-sm mb-10">Target: <span className="text-white font-black text-xl">{currentInnings.total_runs + 1}</span></p>
+                  <p className="text-secondary text-sm mb-10">Target: <span className="text-foreground font-black text-xl">{currentInnings.total_runs + 1}</span></p>
                   <button onClick={() => handleStartInnings(2, currentInnings.bowling_team)} className="w-full glass-button py-5 primary-gradient border-none font-black text-lg">Start 2nd Innings</button>
                 </>
               ) : (
@@ -280,7 +280,7 @@ const Scoring = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-secondary font-black uppercase tracking-[0.3em] mb-2">OVERS</p>
+                <p className="text-[10px] text-secondary/80 font-black uppercase tracking-[0.3em] mb-2">OVERS</p>
                 <div className="flex items-baseline justify-end gap-1">
                   <span className="text-4xl font-black tabular-nums">{Math.floor(currentInnings.total_balls / 6)}</span>
                   <span className="text-xl font-black text-secondary">.{currentInnings.total_balls % 6}</span>
@@ -291,17 +291,17 @@ const Scoring = () => {
             <div className="flex justify-between items-center py-4 border-t border-white/5">
               <div className="flex gap-2">
                 <div className="px-3 py-1.5 bg-white/5 rounded-lg border border-white/5">
-                  <p className="text-[7px] text-secondary font-black uppercase tracking-widest mb-0.5">CRR</p>
+                  <p className="text-[7px] text-secondary/80 font-black uppercase tracking-widest mb-0.5">CRR</p>
                   <p className="text-xs font-black tabular-nums">{(currentInnings.total_runs / (currentInnings.total_balls / 6 || 1)).toFixed(2)}</p>
                 </div>
                 {currentInnings.target && (
                   <>
                     <div className="px-3 py-1.5 bg-accent/10 rounded-lg border border-accent/20">
-                      <p className="text-[7px] text-accent font-black uppercase tracking-widest mb-0.5">TARGET</p>
+                      <p className="text-[7px] text-accent/80 font-black uppercase tracking-widest mb-0.5">TARGET</p>
                       <p className="text-xs font-black tabular-nums text-accent">{currentInnings.target}</p>
                     </div>
                     <div className="px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
-                      <p className="text-[7px] text-primary font-black uppercase tracking-widest mb-0.5">RRR</p>
+                      <p className="text-[7px] text-primary/80 font-black uppercase tracking-widest mb-0.5">RRR</p>
                       <p className="text-xs font-black tabular-nums text-primary">
                         {Math.max(0, (currentInnings.target - currentInnings.total_runs) / ((match.overs * 6 - currentInnings.total_balls) / 6 || 1)).toFixed(2)}
                       </p>
@@ -310,7 +310,7 @@ const Scoring = () => {
                 )}
               </div>
               {currentInnings.target && (
-                <p className="text-xs font-black text-white/40 tabular-nums uppercase">Need {currentInnings.target - currentInnings.total_runs} in {match.overs * 6 - currentInnings.total_balls}</p>
+                <p className="text-xs font-black text-foreground/70 tabular-nums uppercase">Need {Math.max(0, currentInnings.target - currentInnings.total_runs)} in {Math.max(0, match.overs * 6 - currentInnings.total_balls)}</p>
               )}
             </div>
           </motion.div>

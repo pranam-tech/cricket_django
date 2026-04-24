@@ -69,7 +69,7 @@ const MatchSetup = () => {
       >
         <div className="flex items-center gap-3 mb-10">
           <div className="p-3 primary-gradient rounded-xl shadow-lg shadow-primary/20">
-            <Settings className="w-8 h-8 text-white" />
+            <Settings className="w-8 h-8 text-foreground" />
           </div>
           <div>
             <h2 className="text-3xl font-black">Match Setup</h2>
