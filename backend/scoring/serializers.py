@@ -41,7 +41,7 @@ class InningsSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Innings
-        fields = '__all__'
+        fields = ['id', 'match', 'innings_no', 'batting_team', 'bowling_team', 'target', 'total_runs', 'total_wickets', 'total_balls', 'is_completed', 'batting_scores', 'bowling_scores', 'balls', 'batting_team_name', 'bowling_team_name', 'batting_team_players', 'bowling_team_players']
 
 class MatchSerializer(serializers.ModelSerializer):
     team1_name = serializers.CharField(source='team1.name', read_only=True)
@@ -51,6 +51,14 @@ class MatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match
         fields = ['id', 'team1', 'team2', 'team1_name', 'team2_name', 'overs', 'players_per_team', 'last_man_stands', 'status', 'current_innings_no', 'winner', 'winner_name', 'team1_score', 'team2_score', 'innings', 'created_at']
+
+class MatchListSerializer(serializers.ModelSerializer):
+    team1_name = serializers.CharField(source='team1.name', read_only=True)
+    team2_name = serializers.CharField(source='team2.name', read_only=True)
+    
+    class Meta:
+        model = Match
+        fields = ['id', 'team1_name', 'team2_name', 'status', 'created_at']
 
 class MatchLiveSerializer(serializers.ModelSerializer):
     current_innings_data = serializers.SerializerMethodField()
@@ -63,7 +71,9 @@ class MatchLiveSerializer(serializers.ModelSerializer):
 
     def get_current_innings_data(self, obj):
         if obj.current_innings_no > 0:
-            innings = obj.innings.filter(innings_no=obj.current_innings_no).first()
+            # Look in prefetched innings to avoid a DB hit
+            innings_list = [i for i in obj.innings.all() if i.innings_no == obj.current_innings_no]
+            innings = innings_list[0] if innings_list else None
             if innings:
                 return InningsSerializer(innings).data
         return None

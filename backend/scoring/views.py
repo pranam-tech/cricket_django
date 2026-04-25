@@ -2,12 +2,30 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Match, Team, Player, Innings, BattingScore, BowlingScore, BallEvent
-from .serializers import MatchSerializer, MatchLiveSerializer, TeamSerializer, PlayerSerializer
+from .serializers import MatchSerializer, MatchListSerializer, MatchLiveSerializer, TeamSerializer, PlayerSerializer
 from .logic import record_ball, undo_ball
 
 class MatchViewSet(viewsets.ModelViewSet):
     queryset = Match.objects.all().order_by('-created_at')
-    serializer_class = MatchSerializer
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return MatchListSerializer
+        return MatchSerializer
+
+    def get_queryset(self):
+        queryset = Match.objects.select_related('team1', 'team2').all().order_by('-created_at')
+        if self.action in ['retrieve', 'live_state', 'start_innings', 'record_ball', 'undo_ball', 'next_batsman', 'next_bowler']:
+            queryset = queryset.select_related('winner').prefetch_related(
+                'innings__batting_team__players',
+                'innings__bowling_team__players',
+                'innings__batting_scores__player',
+                'innings__bowling_scores__player',
+                'innings__balls__bowler'
+            )
+        return queryset
+
+    def get_object(self):
+        return super().get_object()
 
     @action(detail=False, methods=['post'], url_path='quick')
     def quick_match(self, request):
@@ -47,7 +65,7 @@ class MatchViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='start-innings')
     def start_innings(self, request, pk=None):
-        match = self.get_object()
+        match = Match.objects.get(id=pk)
         innings_no = request.data.get('innings_no')
         batting_team_id = request.data.get('batting_team_id')
         
@@ -81,8 +99,7 @@ class InningsViewSet(viewsets.GenericViewSet):
         innings_id = pk
         try:
             ball = record_ball(innings_id, request.data)
-            match = Innings.objects.get(id=innings_id).match
-            return Response(MatchLiveSerializer(match).data)
+            return Response(MatchLiveSerializer(self.get_object()).data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -91,8 +108,7 @@ class InningsViewSet(viewsets.GenericViewSet):
         innings_id = pk
         try:
             success = undo_ball(innings_id)
-            match = Innings.objects.get(id=innings_id).match
-            return Response(MatchLiveSerializer(match).data)
+            return Response(MatchLiveSerializer(self.get_object()).data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -112,7 +128,7 @@ class InningsViewSet(viewsets.GenericViewSet):
             defaults={'is_at_crease': True, 'is_striker': not has_striker}
         )
         
-        return Response(MatchLiveSerializer(innings.match).data)
+        return Response(MatchLiveSerializer(self.get_object()).data)
 
     @action(detail=True, methods=['post'], url_path='next-bowler')
     def next_bowler(self, request, pk=None):
@@ -130,4 +146,4 @@ class InningsViewSet(viewsets.GenericViewSet):
         score.is_current = True
         score.save()
         
-        return Response(MatchLiveSerializer(innings.match).data)
+        return Response(MatchLiveSerializer(self.get_object()).data)
