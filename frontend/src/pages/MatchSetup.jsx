@@ -41,6 +41,21 @@ const MatchSetup = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const t1 = formData.team1_name.trim();
+    const t2 = formData.team2_name.trim();
+
+    if (!t1 || !t2) {
+      alert("Team names cannot be empty.");
+      return;
+    }
+    if (t1 === t2) {
+      alert("Team names must be different.");
+      return;
+    }
+    if (formData.overs <= 0) {
+      alert("Match must have at least 1 over.");
+      return;
+    }
     if (team1Players.length < 2 || team2Players.length < 2) {
       alert("Each team must have at least 2 players.");
       return;
@@ -50,12 +65,15 @@ const MatchSetup = () => {
     try {
       const res = await matchApi.create({
         ...formData,
+        team1_name: t1,
+        team2_name: t2,
         team1_players: team1Players,
         team2_players: team2Players,
       });
       navigate(`/scoring/${res.data.id}`);
     } catch (err) {
       console.error(err);
+      alert(err.response?.data?.error || "Failed to create match. Please check all fields.");
       setLoading(false);
     }
   };
@@ -86,8 +104,11 @@ const MatchSetup = () => {
               </label>
               <input
                 type="number"
-                value={formData.overs}
-                onChange={e => setFormData({ ...formData, overs: parseInt(e.target.value) })}
+                value={formData.overs || ''}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  setFormData({ ...formData, overs: isNaN(val) ? 0 : val });
+                }}
                 className="w-full bg-foreground/5 border border-foreground/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-bold"
                 min="1"
                 required

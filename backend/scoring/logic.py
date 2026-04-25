@@ -68,7 +68,7 @@ def record_ball(innings_id, data):
         innings.save()
         
         # 3. Update BattingScore
-        if data.get('extras_type') not in ['lb', 'b', 'penalty']: # Runs off bat only
+        if data.get('extras_type') not in ['lb', 'b', 'wd', 'penalty']: # Runs off bat only
             striker_score.runs += data['runs_scored']
             if data['runs_scored'] == 4: striker_score.fours += 1
             if data['runs_scored'] == 6: striker_score.sixes += 1
@@ -96,12 +96,17 @@ def record_ball(innings_id, data):
         # 5. Strike Rotation
         should_rotate = False
         if not data.get('is_wicket'):
-            # Physical runs taken: Batter runs + extras runs (excluding penalties)
-            physical_runs = data.get('runs_scored', 0)
-            if data.get('extras_type') in ['lb', 'b']:
-                physical_runs += data.get('extras_runs', 0)
+            # Physical runs taken:
+            # - Normal/NB: runs_scored
+            # - LB/B: extras_runs
+            # - WD: extras_runs - 1
+            physical_runs = 0
+            if not data.get('extras_type') or data.get('extras_type') == 'nb':
+                physical_runs = data.get('runs_scored', 0)
+            elif data.get('extras_type') in ['lb', 'b']:
+                physical_runs = data.get('extras_runs', 0)
             elif data.get('extras_type') == 'wd':
-                physical_runs += (data.get('extras_runs', 0) - 1)
+                physical_runs = max(0, data.get('extras_runs', 0) - 1)
                 
             if physical_runs % 2 != 0:
                 should_rotate = True
@@ -189,7 +194,9 @@ def undo_ball(innings_id):
         striker_score.save()
         
         # Revert Bowling
+        BowlingScore.objects.filter(innings=innings).update(is_current=False)
         bowler_score = BowlingScore.objects.get(innings=innings, player=last_ball.bowler)
+        bowler_score.is_current = True
         if is_legal:
             bowler_score.balls_bowled -= 1
             

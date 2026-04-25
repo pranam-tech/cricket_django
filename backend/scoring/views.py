@@ -32,31 +32,43 @@ class MatchViewSet(viewsets.ModelViewSet):
         """
         Creates a quick match with team names and player lists.
         """
-        team1_name = request.data.get('team1_name', 'Team A')
-        team2_name = request.data.get('team2_name', 'Team B')
+        from django.db import transaction
+        
+        team1_name = request.data.get('team1_name', 'Team A').strip()
+        team2_name = request.data.get('team2_name', 'Team B').strip()
         team1_players = request.data.get('team1_players', [])
         team2_players = request.data.get('team2_players', [])
-        overs = request.data.get('overs', 20)
+        overs = int(request.data.get('overs', 20))
         last_man_stands = request.data.get('last_man_stands', False)
-        
-        team1 = Team.objects.create(name=team1_name)
-        team2 = Team.objects.create(name=team2_name)
-        
-        for name in team1_players:
-            Player.objects.create(name=name, team=team1)
-        for name in team2_players:
-            Player.objects.create(name=name, team=team2)
-            
-        match = Match.objects.create(
-            team1=team1,
-            team2=team2,
-            overs=overs,
-            players_per_team=max(len(team1_players), len(team2_players)),
-            last_man_stands=last_man_stands,
-            status='setup'
-        )
-        
-        return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)
+
+        if not team1_players or not team2_players:
+            return Response({'error': 'Both teams must have players'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                team1 = Team.objects.create(name=team1_name)
+                team2 = Team.objects.create(name=team2_name)
+                
+                players_to_create = []
+                for name in team1_players:
+                    players_to_create.append(Player(name=name.strip(), team=team1))
+                for name in team2_players:
+                    players_to_create.append(Player(name=name.strip(), team=team2))
+                
+                Player.objects.bulk_create(players_to_create)
+                    
+                match = Match.objects.create(
+                    team1=team1,
+                    team2=team2,
+                    overs=overs,
+                    players_per_team=max(len(team1_players), len(team2_players)),
+                    last_man_stands=last_man_stands,
+                    status='setup'
+                )
+                
+            return Response(MatchLiveSerializer(match).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['get'], url_path='live')
     def live_state(self, request, pk=None):
@@ -65,19 +77,25 @@ class MatchViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='start-innings')
     def start_innings(self, request, pk=None):
-        match = Match.objects.get(id=pk)
-        innings_no = request.data.get('innings_no')
-        batting_team_id = request.data.get('batting_team_id')
+        # Use get_object to leverage optimized prefetching
+        match = self.get_object()
+        innings_no = int(request.data.get('innings_no'))
+        batting_team_id = str(request.data.get('batting_team_id'))
         
-        batting_team = Team.objects.get(id=batting_team_id)
-        bowling_team = match.team2 if batting_team == match.team1 else match.team1
+        # Select batting team based on ID
+        if batting_team_id == str(match.team1.id):
+            batting_team = match.team1
+            bowling_team = match.team2
+        else:
+            batting_team = match.team2
+            bowling_team = match.team1
         
         target = None
         if innings_no == 2:
             first_innings = match.innings.get(innings_no=1)
             target = first_innings.total_runs + 1
             
-        innings = Innings.objects.create(
+        Innings.objects.create(
             match=match,
             innings_no=innings_no,
             batting_team=batting_team,
@@ -89,6 +107,8 @@ class MatchViewSet(viewsets.ModelViewSet):
         match.status = 'live'
         match.save()
         
+        # Re-fetch the match with the new innings prefetched
+        match = self.get_object()
         return Response(MatchLiveSerializer(match).data)
 
 class InningsViewSet(viewsets.GenericViewSet):

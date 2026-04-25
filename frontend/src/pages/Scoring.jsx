@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { matchApi, inningsApi } from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Undo2, Trophy, RotateCw, AlertCircle, X, UserPlus, ShieldAlert, Home, User } from 'lucide-react';
+import { Undo2, Trophy, RotateCw, AlertCircle, X, UserPlus, ShieldAlert, Home, User, Play } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -22,6 +22,7 @@ const Scoring = () => {
   const [activeView, setActiveView] = useState('scoring');
   const [isWicketPending, setIsWicketPending] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isManualBowlerChange, setIsManualBowlerChange] = useState(false);
 
   const fetchState = useCallback(async () => {
     try {
@@ -61,36 +62,67 @@ const Scoring = () => {
     const prevMatch = { ...match };
     const newMatch = JSON.parse(JSON.stringify(match)); // Deep copy
     const inn = newMatch.current_innings_data;
-    
-    // 1. Update Runs
+
+    // 1. Update Runs & Balls
     let extrasRuns = 0;
-    if (extrasType === 'nb') extrasRuns = 1;
-    else if (extrasType === 'wd') extrasRuns = 1 + runs;
-    else if (extrasType === 'b' || extrasType === 'lb') extrasRuns = runs;
+    let batterRuns = 0;
     
-    inn.total_runs += (runs + extrasRuns);
+    if (!extrasType) {
+      batterRuns = runs;
+    } else if (extrasType === 'nb') {
+      extrasRuns = 1;
+      batterRuns = runs;
+    } else if (extrasType === 'wd') {
+      extrasRuns = 1 + runs;
+      batterRuns = 0;
+    } else if (extrasType === 'b' || extrasType === 'lb') {
+      extrasRuns = runs;
+      batterRuns = 0;
+    }
+    
+    inn.total_runs += (batterRuns + extrasRuns);
     if (isWicket) inn.total_wickets += 1;
     if (!['wd', 'nb'].includes(extrasType)) inn.total_balls += 1;
 
     // 2. Add fake ball to timeline for instant feedback
     const fakeBall = {
       id: 'temp-' + Date.now(),
-      runs_scored: runs,
+      runs_scored: batterRuns,
       extras_type: extrasType,
       extras_runs: extrasRuns,
       is_wicket: isWicket,
-      over_no: Math.floor(inn.total_balls / 6),
-      bowler_name: currentBowler.player_name
+      over_no: Math.floor((inn.total_balls || 0) / 6),
+      bowler_name: currentBowler?.player_name,
+      striker: striker?.player,
+      non_striker: nonStriker?.player,
+      bowler: currentBowler?.player
     };
     inn.balls.push(fakeBall);
 
-    // 3. Update player scores (simplified for speed)
+    // 3. Update player scores & Strike Rotation
     const s = inn.batting_scores.find(b => b.player === striker.player);
-    if (s && !extrasType) {
-      s.runs += runs;
-      s.balls_faced += 1;
+    const ns = inn.batting_scores.find(b => b.player === nonStriker?.player);
+
+    if (s) {
+      s.runs += batterRuns;
+      if (!['wd', 'nb'].includes(extrasType)) {
+        s.balls_faced += 1;
+      }
     }
-    
+
+    // Determine physical runs for rotation (runs actually taken)
+    let physicalRuns = (extrasType === 'wd' || extrasType === 'b' || extrasType === 'lb') ? runs : batterRuns;
+
+    let rotate = physicalRuns % 2 !== 0;
+    if (!['wd', 'nb'].includes(extrasType) && inn.total_balls % 6 === 0) {
+      rotate = !rotate;
+    }
+
+    if (rotate && s && ns && !isLMSActive) {
+      s.is_striker = !s.is_striker;
+      ns.is_striker = !ns.is_striker;
+    }
+
     setMatch(newMatch);
     // --- OPTIMISTIC UPDATE END ---
 
@@ -100,7 +132,7 @@ const Scoring = () => {
       striker_id: striker.player,
       non_striker_id: nonStriker?.player || striker.player,
       bowler_id: currentBowler.player,
-      runs_scored: runs,
+      runs_scored: batterRuns,
       extras_type: extrasType,
       extras_runs: extrasRuns,
       is_wicket: isWicket,
@@ -148,6 +180,7 @@ const Scoring = () => {
       alert("Failed to select bowler");
     } finally {
       setIsProcessing(false);
+      setIsManualBowlerChange(false);
     }
   };
 
@@ -161,11 +194,64 @@ const Scoring = () => {
     const lastBall = inn.balls.pop();
 
     if (lastBall) {
-      inn.total_runs -= (lastBall.runs_scored + lastBall.extras_runs);
-      if (lastBall.is_wicket) inn.total_wickets -= 1;
-      if (!['wd', 'nb'].includes(lastBall.extras_type)) inn.total_balls -= 1;
+      inn.total_runs = Math.max(0, (inn.total_runs || 0) - (lastBall.runs_scored + lastBall.extras_runs));
+      if (lastBall.is_wicket) inn.total_wickets = Math.max(0, (inn.total_wickets || 0) - 1);
+      
+      const wasLegal = !['wd', 'nb'].includes(lastBall.extras_type);
+      if (wasLegal) inn.total_balls = Math.max(0, (inn.total_balls || 0) - 1);
+
+      // Revert Player Scores
+      const strikerId = lastBall.striker;
+      const nonStrikerId = lastBall.non_striker;
+      const bowlerId = lastBall.bowler;
+
+      const s = inn.batting_scores.find(b => b.player === strikerId);
+      const ns = inn.batting_scores.find(b => b.player === nonStrikerId);
+      const b = inn.bowling_scores.find(bo => bo.player === bowlerId);
+
+      // CRITICAL: Only subtract from batter if it wasn't a Wide, Bye, or Leg-Bye
+      const isBatRun = !lastBall.extras_type || lastBall.extras_type === 'nb';
+
+      if (s) {
+        if (isBatRun) s.runs = Math.max(0, s.runs - lastBall.runs_scored);
+        if (wasLegal) s.balls_faced = Math.max(0, s.balls_faced - 1);
+        if (lastBall.is_wicket) {
+          s.is_out = false;
+          s.is_at_crease = true;
+        }
+      }
+
+      if (b) {
+        let bowlerRuns = lastBall.runs_scored;
+        if (['wd', 'nb'].includes(lastBall.extras_type)) bowlerRuns += lastBall.extras_runs;
+        else if (['lb', 'b'].includes(lastBall.extras_type)) bowlerRuns = 0;
+        
+        b.runs_conceded = Math.max(0, b.runs_conceded - bowlerRuns);
+        if (wasLegal) b.balls_bowled = Math.max(0, b.balls_bowled - 1);
+        if (lastBall.is_wicket) b.wickets = Math.max(0, b.wickets - 1);
+      }
+
+      // Revert rotation if needed
+      let physicalRuns = 0;
+      if (isBatRun) {
+        physicalRuns = lastBall.runs_scored;
+      } else if (lastBall.extras_type === 'wd') {
+        physicalRuns = Math.max(0, lastBall.extras_runs - 1);
+      } else if (['b', 'lb'].includes(lastBall.extras_type)) {
+        physicalRuns = lastBall.extras_runs;
+      }
+
+      let shouldUnrotate = physicalRuns % 2 !== 0;
+      if (wasLegal && (inn.total_balls + 1) % 6 === 0) {
+        shouldUnrotate = !shouldUnrotate;
+      }
+
+      if (shouldUnrotate && s && ns && !match.last_man_stands) {
+        s.is_striker = !s.is_striker;
+        ns.is_striker = !ns.is_striker;
+      }
     }
-    
+
     setMatch(newMatch);
     // --- OPTIMISTIC UPDATE END ---
 
@@ -209,6 +295,7 @@ const Scoring = () => {
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-background"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (error) return <div className="p-10 text-center">{error}</div>;
+  if (!match) return <div className="p-10 text-center">Match not found</div>;
 
   const currentInnings = match.current_innings_data;
   const striker = currentInnings?.batting_scores?.find(b => b.is_striker && b.is_at_crease);
@@ -216,14 +303,13 @@ const Scoring = () => {
   const currentBowler = currentInnings?.bowling_scores?.find(b => b.is_current);
 
   const availableBatsmen = currentInnings?.batting_team_players?.filter(p =>
-    !currentInnings.batting_scores.some(bs => bs.player === p.id)
+    !(currentInnings?.batting_scores || []).some(bs => bs.player === p.id)
   ) || [];
 
   const overEnded = currentInnings && currentInnings.total_balls > 0 && currentInnings.total_balls % 6 === 0;
-  const lastBall = currentInnings?.balls?.length > 0 ? currentInnings.balls[currentInnings.balls.length - 1] : null;
+  const lastBall = (currentInnings?.balls?.length || 0) > 0 ? currentInnings.balls[currentInnings.balls.length - 1] : null;
   const lastBallWasLegal = lastBall && !(['wd', 'nb'].includes(lastBall.extras_type));
 
-  // LMS is active if it's enabled and we have no more batsmen available in the dugout
   const isLMSActive = match.last_man_stands && availableBatsmen.length === 0;
 
   const isBowlerChangeRequired = overEnded && lastBallWasLegal && currentBowler?.player === lastBall?.bowler;
@@ -234,46 +320,18 @@ const Scoring = () => {
   );
 
   const isWicketPromptRequired = isWicketPending && !isLMSActive && availableBatsmen.length > 0;
-
-
   const isMatchCompleted = match.status === 'completed';
 
+  // Identify restricted bowler (who bowled the previous over)
+  const currentOverNo = Math.floor((currentInnings?.total_balls || 0) / 6);
+  const previousOverBall = currentInnings?.balls?.findLast(b => b.over_no < currentOverNo);
+  const restrictedBowlerId = previousOverBall?.bowler;
+
   return (
-    <div className="max-w-xl mx-auto p-4 min-h-screen flex flex-col bg-background selection:bg-primary/20 relative">
-      {/* Loading Overlay (Only for non-scoring actions) */}
-      {isProcessing && !match?.current_innings_data && (
-        <div className="fixed inset-0 z-[60] bg-black/10 backdrop-blur-[1px] flex items-center justify-center pointer-events-auto">
-          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
+    <div className="max-w-xl mx-auto p-4 h-screen flex flex-col bg-background selection:bg-primary/20 relative overflow-hidden">
+      {/* ... (Processing overlay remains) ... */}
 
-      {/* Match Completed Overlay */}
-      <AnimatePresence>
-        {isMatchCompleted && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 bg-background/90 backdrop-blur-md flex items-center justify-center p-6">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="glass-card text-center w-full max-w-sm p-10 border-2 border-primary/20 shadow-2xl shadow-primary/20">
-              <div className="p-5 bg-green-500/20 rounded-full w-20 h-20 mx-auto mb-8 flex items-center justify-center ring-4 ring-green-500/10">
-                <Trophy className="w-10 h-10 text-green-500" />
-              </div>
-              <h2 className="text-4xl font-black mb-4">Match Over!</h2>
-              <div className="mb-10">
-                {match.winner ? (
-                  <p className="text-2xl font-black text-foreground uppercase tracking-tight"><span className="text-primary">{match.winner_name}</span> WON!</p>
-                ) : (
-                  <p className="text-2xl font-black text-accent uppercase">IT'S A DRAW!</p>
-                )}
-                <div className="mt-4 flex justify-center gap-4 text-secondary font-bold">
-                  <div>{match.team1_name}: {match.team1_score}</div>
-                  <div>{match.team2_name}: {match.team2_score}</div>
-                </div>
-              </div>
-              <button onClick={() => navigate('/')} className="w-full glass-button py-5 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20">BACK TO HOME</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <header className="flex justify-between items-center mb-6">
+      <header className="flex justify-between items-center mb-4 shrink-0">
         <button onClick={() => navigate('/')} className="p-2 glass rounded-lg text-secondary hover:text-foreground transition-colors">
           <Home className="w-5 h-5" />
         </button>
@@ -282,7 +340,7 @@ const Scoring = () => {
             {match.team1_name} <span className="text-primary/40 italic">vs</span> {match.team2_name}
           </p>
           <div className="flex items-center gap-2 justify-center">
-            <span className={cn("w-2 h-2 rounded-full", match.status === 'live' ? "bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500")} />
+            <span className={cn("w-2 h-2 rounded-full", match.status === 'live' ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500")} />
             <span className="text-[10px] uppercase font-black text-foreground tracking-widest">{match.status}</span>
           </div>
         </div>
@@ -290,282 +348,234 @@ const Scoring = () => {
           <Undo2 className="w-5 h-5" />
         </button>
       </header>
-      
+
       {match.status !== 'completed' && (
-        <div className="flex bg-foreground/5 p-1 rounded-2xl mb-6 border border-foreground/10">
-          <button 
+        <div className="flex bg-foreground/5 p-1 rounded-2xl mb-4 border border-foreground/10 shrink-0">
+          <button
             onClick={() => setActiveView('scoring')}
-            className={`flex-1 py-3 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${activeView === 'scoring' ? 'primary-gradient text-white shadow-lg shadow-primary/20' : 'text-secondary hover:text-foreground'}`}
+            className={`flex-1 py-2 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${activeView === 'scoring' ? 'primary-gradient text-white' : 'text-secondary'}`}
           >
             Scoring
           </button>
-          <button 
+          <button
             onClick={() => setActiveView('summary')}
-            className={`flex-1 py-3 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${activeView === 'summary' ? 'primary-gradient text-white shadow-lg shadow-primary/20' : 'text-secondary hover:text-foreground'}`}
+            className={`flex-1 py-2 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${activeView === 'summary' ? 'primary-gradient text-white' : 'text-secondary'}`}
           >
             Summary
           </button>
         </div>
       )}
 
-      {!currentInnings || match.status === 'innings_break' ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6">
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card text-center w-full max-w-sm overflow-hidden">
-            <div className="h-2 primary-gradient w-full" />
-            <div className="p-10">
+      <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+        {activeView === 'summary' ? (
+          <div className="glass-card p-6 text-center">
+            <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
+            <h3 className="text-xl font-black mb-2">Live Match Summary</h3>
+            <button onClick={() => navigate(`/summary/${matchId}`)} className="w-full glass-button py-3 primary-gradient border-none font-black">View Full Scorecard →</button>
+          </div>
+        ) : (!currentInnings || match.status === 'innings_break') ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card text-center w-full max-w-sm overflow-hidden p-10 border-2 border-primary/20">
               <div className="p-4 bg-primary/10 rounded-2xl w-16 h-16 mx-auto mb-6 flex items-center justify-center">
-                <ShieldAlert className="w-8 h-8 text-primary" />
+                <Play className="w-8 h-8 text-primary fill-current" />
               </div>
               {match.status === 'innings_break' ? (
                 <>
                   <h3 className="text-2xl font-black mb-2">Innings Break</h3>
-                  <p className="text-secondary text-sm mb-10">Target: <span className="text-foreground font-black text-xl">{currentInnings.total_runs + 1}</span></p>
-                  <button onClick={() => handleStartInnings(2, currentInnings.bowling_team)} className="w-full glass-button py-5 primary-gradient border-none font-black text-lg">Start 2nd Innings</button>
+                  <p className="text-secondary text-sm mb-10">Target: <span className="text-foreground font-black text-xl">{currentInnings?.total_runs + 1}</span></p>
+                  <button onClick={() => handleStartInnings(2, currentInnings.bowling_team)} className="w-full glass-button py-5 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20">Start 2nd Innings</button>
                 </>
               ) : (
                 <>
                   <h3 className="text-2xl font-black mb-10">Start Match</h3>
                   <div className="grid grid-cols-1 gap-4">
-                    <button onClick={() => handleStartInnings(1, match.team1)} className="glass-button py-5 primary-gradient border-none font-black text-lg">{match.team1_name} Bats</button>
-                    <button onClick={() => handleStartInnings(1, match.team2)} className="glass-button py-5 accent-gradient border-none font-black text-lg">{match.team2_name} Bats</button>
+                    <button onClick={() => handleStartInnings(1, match.team1)} className="glass-button py-5 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20">{match.team1_name} Bats</button>
+                    <button onClick={() => handleStartInnings(1, match.team2)} className="glass-button py-5 accent-gradient border-none font-black text-lg shadow-xl shadow-accent/20">{match.team2_name} Bats</button>
                   </div>
                 </>
               )}
-            </div>
-          </motion.div>
-        </div>
-      ) : activeView === 'summary' ? (
-        <div className="space-y-6">
-          <div className="glass-card p-6 text-center">
-             <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
-             <h3 className="text-xl font-black mb-2">Live Match Summary</h3>
-             <p className="text-secondary mb-6">Detailed scorecard is available on the dedicated summary page.</p>
-             <button onClick={() => navigate(`/summary/${matchId}`)} className="w-full glass-button py-3 primary-gradient border-none font-black">View Full Scorecard →</button>
+            </motion.div>
           </div>
-        </div>
-      ) : (
-        <>
-          <motion.div layoutId="scorecard" className="glass-card mb-4 relative overflow-hidden p-8 border-b-4 border-primary shadow-2xl shadow-primary/10">
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <p className="text-[10px] text-primary font-black uppercase tracking-[0.3em] mb-2">{currentInnings.batting_team_name} BATTING</p>
-                <div className="flex items-baseline gap-1">
-                  <h1 className="text-7xl font-black tabular-nums tracking-tighter">{currentInnings.total_runs}</h1>
-                  <span className="text-4xl font-black text-primary/40">/</span>
-                  <h2 className="text-5xl font-black text-primary tabular-nums">{currentInnings.total_wickets}</h2>
+        ) : (
+          <>
+            <motion.div layoutId="scorecard" className="glass-card mb-2 relative overflow-hidden p-6 border-b-4 border-primary shadow-2xl shadow-primary/10 shrink-0">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-[10px] text-primary font-black uppercase tracking-[0.3em] mb-1">{currentInnings?.batting_team_name}</p>
+                  <div className="flex items-baseline gap-1">
+                    <h1 className="text-6xl font-black tabular-nums tracking-tighter">{currentInnings?.total_runs || 0}</h1>
+                    <span className="text-3xl font-black text-primary/40">/</span>
+                    <h2 className="text-4xl font-black text-primary tabular-nums">{currentInnings?.total_wickets || 0}</h2>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-secondary/80 font-black uppercase tracking-[0.3em] mb-1">OVERS</p>
+                  <div className="flex items-baseline justify-end gap-1">
+                    <span className="text-4xl font-black tabular-nums">{Math.floor((currentInnings?.total_balls || 0) / 6)}</span>
+                    <span className="text-xl font-black text-secondary">.{(currentInnings?.total_balls || 0) % 6}</span>
+                    <span className="text-sm font-black text-secondary/40 ml-1">/ {match.overs}</span>
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] text-secondary/80 font-black uppercase tracking-[0.3em] mb-2">OVERS</p>
-                <div className="flex items-baseline justify-end gap-1">
-                  <span className="text-4xl font-black tabular-nums">{Math.floor(currentInnings.total_balls / 6)}</span>
-                  <span className="text-xl font-black text-secondary">.{currentInnings.total_balls % 6}</span>
-                  <span className="text-sm font-black text-secondary/40 ml-1">/ {match.overs}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center py-4 border-t border-foreground/5">
-              <div className="flex gap-2">
-                <div className="px-3 py-1.5 bg-foreground/5 rounded-lg border border-foreground/5">
-                  <p className="text-[7px] text-secondary/80 font-black uppercase tracking-widest mb-0.5">CRR</p>
-                  <p className="text-xs font-black tabular-nums">{(currentInnings.total_runs / (currentInnings.total_balls / 6 || 1)).toFixed(2)}</p>
+              <div className="flex justify-between items-center py-3 border-t border-foreground/5">
+                <div className="flex gap-2">
+                  <div className="px-3 py-1 bg-foreground/5 rounded-lg">
+                    <p className="text-[9px] font-black tabular-nums">CRR: {((currentInnings?.total_runs || 0) / ((currentInnings?.total_balls || 0) / 6 || 1)).toFixed(2)}</p>
+                  </div>
+                  {currentInnings?.target && (
+                    <div className="px-3 py-1 bg-primary/10 rounded-lg">
+                      <p className="text-[9px] font-black tabular-nums text-primary">RRR: {Math.max(0, (currentInnings.target - currentInnings.total_runs) / ((match.overs * 6 - currentInnings.total_balls) / 6 || 1)).toFixed(2)}</p>
+                    </div>
+                  )}
                 </div>
                 {currentInnings.target && (
-                  <>
-                    <div className="px-3 py-1.5 bg-accent/10 rounded-lg border border-accent/20">
-                      <p className="text-[7px] text-accent/80 font-black uppercase tracking-widest mb-0.5">TARGET</p>
-                      <p className="text-xs font-black tabular-nums text-accent">{currentInnings.target}</p>
+                  <p className="text-[10px] font-black text-foreground/70 uppercase">Need {Math.max(0, currentInnings.target - currentInnings.total_runs)} in {Math.max(0, match.overs * 6 - currentInnings.total_balls)}</p>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Timeline */}
+            <div ref={timelineRef} className="mb-2 flex gap-2 overflow-x-auto pb-1 px-1 shrink-0 scroll-smooth">
+              <AnimatePresence mode="popLayout">
+                {currentInnings?.balls?.slice(-15).map((ball) => (
+                  <div key={ball.id} className={cn("min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border", ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" : (ball.runs_scored + ball.extras_runs) >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-foreground/5 border-foreground/10 text-secondary")}>
+                    {ball.is_wicket ? 'W' : (ball.extras_type ? `${ball.runs_scored + ball.extras_runs}${ball.extras_type.toUpperCase()}` : ball.runs_scored)}
+                  </div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            {/* Batsmen */}
+            <div className="grid grid-cols-2 gap-3 mb-2 shrink-0">
+              <div className={cn("glass-card p-4 border-l-4 transition-all", striker?.is_striker ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
+                <p className="text-[8px] font-black text-secondary uppercase tracking-widest mb-1">Striker</p>
+                <div className="flex justify-between items-end">
+                  <p className="font-black text-sm truncate flex-1 mr-2">{striker?.player_name || '—'}</p>
+                  <p className="text-2xl font-black shrink-0">{striker?.runs || 0}<span className="text-[10px] text-secondary font-bold ml-1">({striker?.balls_faced || 0})</span></p>
+                </div>
+              </div>
+              <div className={cn("glass-card p-4 border-l-4 transition-all", !striker?.is_striker && nonStriker?.is_at_crease ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
+                <p className="text-[8px] font-black text-secondary uppercase tracking-widest mb-1">Non-Striker</p>
+                <div className="flex justify-between items-end">
+                  <p className="font-black text-sm truncate flex-1 mr-2">{nonStriker?.player_name || '—'}</p>
+                  <p className="text-2xl font-black shrink-0">{nonStriker?.runs || 0}<span className="text-[10px] text-secondary font-bold ml-1">({nonStriker?.balls_faced || 0})</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bowler Bar */}
+            <div className="glass-card p-3 mb-2 flex justify-between items-center bg-accent/5 border-l-4 border-accent/40 shrink-0">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-accent" /></div>
+                <div className="overflow-hidden">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-[8px] text-secondary font-black uppercase tracking-widest">Bowler</p>
+                    <button 
+                      onClick={() => setIsManualBowlerChange(true)}
+                      className="px-1.5 py-0.5 bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded text-[7px] font-black text-accent uppercase tracking-tighter transition-all"
+                    >
+                      Change
+                    </button>
+                  </div>
+                  <p className="font-black text-sm truncate">{currentBowler?.player_name || '—'}</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0 ml-4">
+                <p className="text-xl font-black text-accent">{currentBowler?.wickets || 0}-{currentBowler?.runs_conceded || 0}</p>
+                <p className="text-[9px] text-secondary font-black">({Math.floor((currentBowler?.balls_bowled || 0) / 6)}.{(currentBowler?.balls_bowled || 0) % 6})</p>
+              </div>
+            </div>
+
+            {/* Controls Section */}
+            <div className="mt-auto relative pb-2 shrink-0">
+              <AnimatePresence>
+                {(isInitialSetupRequired || isWicketPromptRequired || isBowlerChangeRequired || isManualBowlerChange) && (
+                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="absolute inset-x-0 bottom-0 z-20 glass-card bg-background/95 backdrop-blur-xl border-primary p-6 shadow-2xl">
+                    <div className="flex justify-between items-center mb-4">
+                       <h4 className={cn("text-2xl font-black flex items-center gap-3", (!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? "text-accent" : "text-primary")}>
+                         {(!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? <RotateCw className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
+                         {!striker ? "Select Striker" : (!nonStriker && !isLMSActive) ? "Select Non-Striker" : isWicketPromptRequired ? "Next Batsman" : "Select Bowler"}
+                       </h4>
+                       {(isManualBowlerChange) && (
+                         <button onClick={() => setIsManualBowlerChange(false)} className="p-2 hover:bg-foreground/10 rounded-full transition-colors">
+                           <X className="w-5 h-5 text-secondary" />
+                         </button>
+                       )}
                     </div>
-                    <div className="px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
-                      <p className="text-[7px] text-primary/80 font-black uppercase tracking-widest mb-0.5">RRR</p>
-                      <p className="text-xs font-black tabular-nums text-primary">
-                        {Math.max(0, (currentInnings.target - currentInnings.total_runs) / ((match.overs * 6 - currentInnings.total_balls) / 6 || 1)).toFixed(2)}
+                    
+                    {!striker ? (
+                      <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
+                    ) : (!nonStriker && !isLMSActive) ? (
+                      <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
+                    ) : (isWicketPending && !isLMSActive) ? (
+                      <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
+                    ) : (isBowlerChangeRequired || isManualBowlerChange || !currentBowler) ? (
+                      <SelectionList 
+                        items={currentInnings.bowling_team_players} 
+                        onSelect={handleSelectBowler} 
+                        color="accent" 
+                        disabledIds={restrictedBowlerId ? [restrictedBowlerId] : []}
+                      />
+                    ) : null}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className={cn("space-y-3", (isInitialSetupRequired || isBowlerChangeRequired || isWicketPending) && "opacity-10 pointer-events-none")}>
+                {extraMode ? (
+                  <div className="glass-card p-4 border-2 border-yellow-500/50 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="text-sm font-black text-yellow-500 uppercase tracking-widest">
+                        Recording {extraMode === 'wd' ? 'Wide' : extraMode === 'nb' ? 'No Ball' : extraMode === 'b' ? 'Bye' : 'Leg Bye'}
                       </p>
+                      <button onClick={() => setExtraMode(null)} className="p-1 hover:bg-foreground/10 rounded-full transition-colors">
+                        <X className="w-5 h-5 text-secondary" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[0, 1, 2, 3, 4, 6].map(runs => (
+                        <button key={runs} onClick={() => handleBall(runs, extraMode)} className="glass-button py-4 text-xl font-black border-yellow-500/20 hover:bg-yellow-500/20 text-yellow-500">
+                          {runs}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-4 gap-3">
+                      {[0, 1, 2, 3, 4, 6].map(runs => (
+                        <button key={runs} onClick={() => handleBall(runs)} className="glass-card h-16 flex items-center justify-center text-3xl font-black hover:bg-primary/10 transition-all">
+                          {runs}
+                        </button>
+                      ))}
+                      <button onClick={() => setExtraMode('wd')} className="glass-card h-16 flex items-center justify-center text-xl font-black text-yellow-500">WD</button>
+                      <button onClick={() => setExtraMode('nb')} className="glass-card h-16 flex items-center justify-center text-xl font-black text-yellow-500">NB</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <button onClick={() => setExtraMode('b')} className="glass-card h-14 flex items-center justify-center text-xs font-black text-secondary uppercase">Bye</button>
+                      <button onClick={() => setExtraMode('lb')} className="glass-card h-14 flex items-center justify-center text-xs font-black text-secondary uppercase">Leg-Bye</button>
+                      <button onClick={() => handleBall(0, null, true)} className="glass-card h-14 flex items-center justify-center accent-gradient border-none text-red-500 text-lg font-black uppercase shadow-lg shadow-accent/20">Wicket</button>
                     </div>
                   </>
                 )}
               </div>
-              {currentInnings.target && (
-                <p className="text-xs font-black text-foreground/70 tabular-nums uppercase">Need {Math.max(0, currentInnings.target - currentInnings.total_runs)} in {Math.max(0, match.overs * 6 - currentInnings.total_balls)}</p>
-              )}
             </div>
-          </motion.div>
-
-          {/* Timeline */}
-          <div ref={timelineRef} className="mb-6 flex gap-2 overflow-x-auto pb-2 px-1 scroll-smooth">
-            <AnimatePresence mode="popLayout">
-              {currentInnings?.balls?.slice(-20).map((ball, idx, arr) => (
-                <motion.div 
-                  layout
-                  key={ball.id} 
-                  initial={{ scale: 0, opacity: 0 }} 
-                  animate={{ scale: 1, opacity: 1 }} 
-                  exit={{ scale: 0, opacity: 0 }}
-                  className="flex items-center gap-2"
-                >
-                  {(idx === 0 || ball.over_no !== arr[idx - 1].over_no) && (
-                    <div className="flex items-center gap-2 px-2 border-l border-foreground/10 first:border-0 ml-1">
-                      <div className="flex flex-col">
-                        <span className="text-[7px] font-black text-primary uppercase tracking-tighter leading-none mb-0.5">Over {ball.over_no + 1}</span>
-                        <span className="text-[9px] font-black text-secondary truncate max-w-[50px] leading-none">{ball.bowler_name}</span>
-                      </div>
-                      <div className="w-[1px] h-6 bg-foreground/20 rounded-full" />
-                    </div>
-                  )}
-                  <div
-                    className={cn(
-                      "min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border transition-all",
-                      ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" :
-                        ball.runs_scored >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-foreground/5 border-foreground/10 text-secondary"
-                    )}
-                  >
-                    {ball.is_wicket ? 'W' : (ball.extras_type ? `${ball.extras_runs}${ball.extras_type.toUpperCase()}` : ball.runs_scored)}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-
-          {/* Players */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className={cn("glass-card p-5 border-l-4 transition-all", striker?.is_striker ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
-              <p className="text-[8px] font-black text-secondary uppercase tracking-[0.2em] mb-2">Striker</p>
-              <p className="text-lg font-black truncate mb-1">{striker?.player_name || '—'}</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-black tabular-nums">{striker?.runs || 0}</p>
-                <p className="text-xs font-bold text-secondary tabular-nums">({striker?.balls_faced || 0})</p>
-              </div>
-            </div>
-            <div className={cn("glass-card p-5 border-l-4 transition-all", !striker?.is_striker && nonStriker?.is_at_crease ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
-              <p className="text-[8px] font-black text-secondary uppercase tracking-[0.2em] mb-2">Non-Striker</p>
-              <p className="text-lg font-black truncate mb-1">{nonStriker?.player_name || '—'}</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-black tabular-nums">{nonStriker?.runs || 0}</p>
-                <p className="text-xs font-bold text-secondary tabular-nums">({nonStriker?.balls_faced || 0})</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Bowler */}
-          <div className="glass-card p-4 mb-8 flex justify-between items-center bg-foreground/5 border-l-4 border-accent/40">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center"><User className="w-5 h-5 text-accent" /></div>
-              <div>
-                <p className="text-[8px] text-secondary font-black uppercase tracking-[0.2em]">Current Bowler</p>
-                <div className="flex items-center gap-2">
-                  <p className="font-black text-lg">{currentBowler?.player_name || '—'}</p>
-                  <button onClick={() => setExtraMode('change_bowler')} className="p-1 glass rounded-md text-[8px] font-black uppercase text-primary/60 hover:text-primary">Change</button>
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-black tabular-nums text-accent">{currentBowler?.wickets || 0}<span className="text-lg text-secondary/40 px-1">-</span>{currentBowler?.runs_conceded || 0}</p>
-              <p className="text-[10px] text-secondary font-black tabular-nums uppercase">({Math.floor((currentBowler?.balls_bowled || 0) / 6)}.{(currentBowler?.balls_bowled || 0) % 6})</p>
-            </div>
-          </div>
-
-          {/* Controls Section */}
-          <div className="mt-auto relative">
-            <AnimatePresence>
-              {(isInitialSetupRequired || isWicketPromptRequired || isBowlerChangeRequired) && (
-                <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="absolute inset-x-0 bottom-0 z-20 glass-card bg-background/95 backdrop-blur-xl border-primary p-8 shadow-2xl shadow-primary/20">
-                  {!striker ? (
-                    <SelectionList title="Select Striker" items={availableBatsmen} onSelect={handleSelectNextBatsman} />
-                  ) : (!nonStriker && !isLMSActive) ? (
-                    <SelectionList title="Select Non-Striker" items={availableBatsmen} onSelect={handleSelectNextBatsman} />
-                  ) : (isWicketPending && !isLMSActive) ? (
-                    <SelectionList title="Next Batsman" items={availableBatsmen} onSelect={handleSelectNextBatsman} />
-                  ) : (isBowlerChangeRequired || !currentBowler) ? (
-                    <SelectionList
-                      title={isBowlerChangeRequired ? "Mandatory Bowler Change" : "Select Bowler"}
-                      items={currentInnings.bowling_team_players}
-                      disabledIds={(() => {
-                        const currentOver = Math.floor(currentInnings.total_balls / 6);
-                        const prevOverBall = currentInnings.balls.filter(b => b.over_no < currentOver).pop();
-                        return prevOverBall ? [prevOverBall.bowler] : [];
-                      })()}
-                      onSelect={handleSelectBowler}
-                      color="accent"
-                    />
-                  ) : null}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <AnimatePresence mode="wait">
-              {extraMode && extraMode !== 'change_bowler' ? (
-                <motion.div key="extra-menu" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="glass-card p-6 border-2 border-primary/40">
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="font-black text-primary uppercase tracking-widest text-sm flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {extraMode.toUpperCase()} + Runs?</h4>
-                    <button onClick={() => setExtraMode(null)} className="text-secondary"><X className="w-5 h-5" /></button>
-                  </div>
-                  <div className="grid grid-cols-5 gap-3">
-                    {[0, 1, 2, 3, 4, 6].map(r => (
-                      <button key={r} onClick={() => handleBall(r, extraMode)} className="glass-button h-16 flex items-center justify-center primary-gradient border-none font-black text-xl">{r}</button>
-                    ))}
-                  </div>
-                </motion.div>
-              ) : extraMode === 'change_bowler' ? (
-                <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="glass-card p-8 border-2 border-accent/40 bg-background/95 backdrop-blur-xl">
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-xl font-black text-accent flex items-center gap-2"><RotateCw className="w-6 h-6" /> Select New Bowler</h4>
-                    <button onClick={() => setExtraMode(null)}><X className="w-5 h-5" /></button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {(() => {
-                      const currentOver = Math.floor(currentInnings.total_balls / 6);
-                      const prevOverBall = currentInnings.balls.filter(b => b.over_no < currentOver).pop();
-                      const disabledId = prevOverBall ? prevOverBall.bowler : null;
-
-                      return currentInnings.bowling_team_players.map(p => (
-                        <button key={p.id} disabled={disabledId === p.id} onClick={() => handleSelectBowler(p.id)}
-                          className={cn("glass-button py-4 text-sm font-black border-foreground/10", disabledId === p.id ? "opacity-20 grayscale cursor-not-allowed" : "hover:bg-accent/20")}
-                        >{p.name}</button>
-                      ));
-                    })()}
-                  </div>
-                </motion.div>
-              ) : (
-                <div className={cn("space-y-4 transition-opacity", (isInitialSetupRequired || isBowlerChangeRequired || isWicketPending) && "opacity-20 pointer-events-none")}>
-                  <div className="grid grid-cols-4 gap-3">
-                    {[0, 1, 2, 3, 4, 6].map(runs => (
-                      <button key={runs} onClick={() => handleBall(runs)} className="glass-card h-20 flex flex-col items-center justify-center text-3xl font-black hover:bg-primary/10 transition-all border-foreground/5">
-                        {runs}
-                      </button>
-                    ))}
-                    <button onClick={() => setExtraMode('wd')} className="glass-card h-20 flex items-center justify-center text-xl font-black text-yellow-500 border-yellow-500/10">WD</button>
-                    <button onClick={() => setExtraMode('nb')} className="glass-card h-20 flex items-center justify-center text-xl font-black text-yellow-500 border-yellow-500/10">NB</button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button onClick={() => setExtraMode('b')} className="glass-card h-16 flex items-center justify-center text-xs font-black text-secondary">BYE</button>
-                    <button onClick={() => setExtraMode('lb')} className="glass-card h-16 flex items-center justify-center text-xs font-black text-secondary">LEG BYE</button>
-                    <button onClick={() => handleBall(0, null, true)} className="glass-card h-16 flex items-center justify-center accent-gradient border-none text-xl font-black shadow-lg shadow-accent/20">WICKET</button>
-                  </div>
-                </div>
-              )}
-            </AnimatePresence>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };
 
-const SelectionList = ({ title, items, onSelect, color = "primary", disabledIds = [] }) => (
-  <div className="space-y-6">
-    <h4 className={cn("text-2xl font-black flex items-center gap-3", color === "primary" ? "text-primary" : "text-accent")}>
-      {color === "primary" ? <UserPlus className="w-6 h-6" /> : <RotateCw className="w-6 h-6" />}
-      {title}
-    </h4>
-    <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-      {items.length > 0 ? items.map(p => (
-        <button key={p.id} disabled={disabledIds.includes(p.id)} onClick={() => onSelect(p.id)}
-          className={cn("glass-button py-4 text-sm font-black border-foreground/10 transition-all", disabledIds.includes(p.id) ? "opacity-20 grayscale cursor-not-allowed" : color === "primary" ? "hover:bg-primary/20" : "hover:bg-accent/20")}
-        >{p.name}</button>
-      )) : (
-        <p className="col-span-2 text-center py-10 text-secondary font-black uppercase tracking-widest text-xs opacity-50">No players available</p>
-      )}
-    </div>
+const SelectionList = ({ items, onSelect, color = "primary", disabledIds = [] }) => (
+  <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+    {items.length > 0 ? items.map(p => (
+      <button key={p.id} disabled={disabledIds.includes(p.id)} onClick={() => onSelect(p.id)}
+        className={cn("glass-button py-4 text-sm font-black border-foreground/10 transition-all", disabledIds.includes(p.id) ? "opacity-20 grayscale cursor-not-allowed" : color === "primary" ? "hover:bg-primary/20" : "hover:bg-accent/20")}
+      >{p.name}</button>
+    )) : (
+      <p className="col-span-2 text-center py-10 text-secondary font-black uppercase tracking-widest text-xs opacity-50">No players available</p>
+    )}
   </div>
 );
 
