@@ -240,8 +240,8 @@ const Scoring = () => {
 
   return (
     <div className="max-w-xl mx-auto p-4 min-h-screen flex flex-col bg-background selection:bg-primary/20 relative">
-      {/* Loading Overlay */}
-      {isProcessing && (
+      {/* Loading Overlay (Only for non-scoring actions) */}
+      {isProcessing && !match?.current_innings_data && (
         <div className="fixed inset-0 z-[60] bg-black/10 backdrop-blur-[1px] flex items-center justify-center pointer-events-auto">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
