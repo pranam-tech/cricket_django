@@ -66,7 +66,7 @@ const Scoring = () => {
     // 1. Update Runs & Balls
     let extrasRuns = 0;
     let batterRuns = 0;
-    
+
     if (!extrasType) {
       batterRuns = runs;
     } else if (extrasType === 'nb') {
@@ -79,7 +79,7 @@ const Scoring = () => {
       extrasRuns = runs;
       batterRuns = 0;
     }
-    
+
     inn.total_runs += (batterRuns + extrasRuns);
     if (isWicket) inn.total_wickets += 1;
     if (!['wd', 'nb'].includes(extrasType)) inn.total_balls += 1;
@@ -196,7 +196,7 @@ const Scoring = () => {
     if (lastBall) {
       inn.total_runs = Math.max(0, (inn.total_runs || 0) - (lastBall.runs_scored + lastBall.extras_runs));
       if (lastBall.is_wicket) inn.total_wickets = Math.max(0, (inn.total_wickets || 0) - 1);
-      
+
       const wasLegal = !['wd', 'nb'].includes(lastBall.extras_type);
       if (wasLegal) inn.total_balls = Math.max(0, (inn.total_balls || 0) - 1);
 
@@ -225,7 +225,7 @@ const Scoring = () => {
         let bowlerRuns = lastBall.runs_scored;
         if (['wd', 'nb'].includes(lastBall.extras_type)) bowlerRuns += lastBall.extras_runs;
         else if (['lb', 'b'].includes(lastBall.extras_type)) bowlerRuns = 0;
-        
+
         b.runs_conceded = Math.max(0, b.runs_conceded - bowlerRuns);
         if (wasLegal) b.balls_bowled = Math.max(0, b.balls_bowled - 1);
         if (lastBall.is_wicket) b.wickets = Math.max(0, b.wickets - 1);
@@ -373,6 +373,21 @@ const Scoring = () => {
             <h3 className="text-xl font-black mb-2">Live Match Summary</h3>
             <button onClick={() => navigate(`/summary/${matchId}`)} className="w-full glass-button py-3 primary-gradient border-none font-black">View Full Scorecard →</button>
           </div>
+        ) : isMatchCompleted ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 p-4">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card text-center w-full max-w-sm p-10 border-2 border-primary/20 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 inset-x-0 h-1 primary-gradient" />
+              <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-6" />
+              <h3 className="text-3xl font-black mb-2 tracking-tight">Match Ended</h3>
+              <p className="text-secondary text-sm font-black uppercase tracking-[0.2em] mb-8">
+                {match.winner ? `${match.winner_name} won!` : "It's a Tie!"}
+              </p>
+              <div className="space-y-3">
+                <button onClick={() => navigate(`/summary/${matchId}`)} className="w-full glass-button py-4 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20">View Final Scorecard</button>
+                <button onClick={() => navigate('/')} className="w-full glass-button py-3 text-secondary font-black text-sm">Return Home</button>
+              </div>
+            </motion.div>
+          </div>
         ) : (!currentInnings || match.status === 'innings_break') ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-6">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card text-center w-full max-w-sm overflow-hidden p-10 border-2 border-primary/20">
@@ -418,30 +433,45 @@ const Scoring = () => {
                 </div>
               </div>
               <div className="flex justify-between items-center py-3 border-t border-foreground/5">
-                <div className="flex gap-2">
-                  <div className="px-3 py-1 bg-foreground/5 rounded-lg">
-                    <p className="text-[9px] font-black tabular-nums">CRR: {((currentInnings?.total_runs || 0) / ((currentInnings?.total_balls || 0) / 6 || 1)).toFixed(2)}</p>
+                <div className="flex gap-1.5">
+                  {currentInnings?.target && (
+                    <div className="px-2.5 py-1 bg-primary/20 rounded-lg border border-primary/20">
+                      <p className="text-[9px] font-black text-primary tabular-nums uppercase tracking-tighter">TARGET: {currentInnings.target}</p>
+                    </div>
+                  )}
+                  <div className="px-2.5 py-1 bg-foreground/10 rounded-lg border border-foreground/5">
+                    <p className="text-[9px] font-black text-secondary tabular-nums uppercase tracking-tighter">CRR: {((currentInnings?.total_runs || 0) / ((currentInnings?.total_balls || 0) / 6 || 1)).toFixed(2)}</p>
                   </div>
                   {currentInnings?.target && (
-                    <div className="px-3 py-1 bg-primary/10 rounded-lg">
-                      <p className="text-[9px] font-black tabular-nums text-primary">RRR: {Math.max(0, (currentInnings.target - currentInnings.total_runs) / ((match.overs * 6 - currentInnings.total_balls) / 6 || 1)).toFixed(2)}</p>
+                    <div className="px-2.5 py-1 bg-accent/20 rounded-lg border border-accent/20">
+                      <p className="text-[9px] font-black text-accent tabular-nums uppercase tracking-tighter">RRR: {Math.max(0, (currentInnings.target - currentInnings.total_runs) / ((match.overs * 6 - currentInnings.total_balls) / 6 || 1)).toFixed(2)}</p>
                     </div>
                   )}
                 </div>
-                {currentInnings.target && (
+                {currentInnings?.target && (
                   <p className="text-[10px] font-black text-foreground/70 uppercase">Need {Math.max(0, currentInnings.target - currentInnings.total_runs)} in {Math.max(0, match.overs * 6 - currentInnings.total_balls)}</p>
                 )}
               </div>
             </motion.div>
 
             {/* Timeline */}
-            <div ref={timelineRef} className="mb-2 flex gap-2 overflow-x-auto pb-1 px-1 shrink-0 scroll-smooth">
+            <div ref={timelineRef} className="mb-2 flex items-center gap-2 overflow-x-auto pb-1 px-1 shrink-0 scroll-smooth custom-scrollbar">
               <AnimatePresence mode="popLayout">
-                {currentInnings?.balls?.slice(-15).map((ball) => (
-                  <div key={ball.id} className={cn("min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border", ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" : (ball.runs_scored + ball.extras_runs) >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-foreground/5 border-foreground/10 text-secondary")}>
-                    {ball.is_wicket ? 'W' : (ball.extras_type ? `${ball.runs_scored + ball.extras_runs}${ball.extras_type.toUpperCase()}` : ball.runs_scored)}
-                  </div>
-                ))}
+                {currentInnings?.balls?.slice(-18).map((ball, idx, arr) => {
+                  const showSeparator = idx > 0 && ball.over_no !== arr[idx - 1].over_no;
+                  return (
+                    <React.Fragment key={ball.id}>
+                      {showSeparator && (
+                        <div className="flex flex-col items-center gap-1 shrink-0 px-1">
+                          <div className="w-[1px] h-6 bg-foreground/20" />
+                        </div>
+                      )}
+                      <div className={cn("min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border shrink-0", ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" : (ball.runs_scored + ball.extras_runs) >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-foreground/5 border-foreground/10 text-secondary")}>
+                        {ball.is_wicket ? 'W' : (ball.extras_type ? `${ball.runs_scored + ball.extras_runs}${ball.extras_type.toUpperCase()}` : ball.runs_scored)}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
               </AnimatePresence>
             </div>
 
@@ -470,7 +500,7 @@ const Scoring = () => {
                 <div className="overflow-hidden">
                   <div className="flex items-center gap-2 mb-0.5">
                     <p className="text-[8px] text-secondary font-black uppercase tracking-widest">Bowler</p>
-                    <button 
+                    <button
                       onClick={() => setIsManualBowlerChange(true)}
                       className="px-1.5 py-0.5 bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded text-[7px] font-black text-accent uppercase tracking-tighter transition-all"
                     >
@@ -492,17 +522,17 @@ const Scoring = () => {
                 {(isInitialSetupRequired || isWicketPromptRequired || isBowlerChangeRequired || isManualBowlerChange) && (
                   <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="absolute inset-x-0 bottom-0 z-20 glass-card bg-background/95 backdrop-blur-xl border-primary p-6 shadow-2xl">
                     <div className="flex justify-between items-center mb-4">
-                       <h4 className={cn("text-2xl font-black flex items-center gap-3", (!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? "text-accent" : "text-primary")}>
-                         {(!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? <RotateCw className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
-                         {!striker ? "Select Striker" : (!nonStriker && !isLMSActive) ? "Select Non-Striker" : isWicketPromptRequired ? "Next Batsman" : "Select Bowler"}
-                       </h4>
-                       {(isManualBowlerChange) && (
-                         <button onClick={() => setIsManualBowlerChange(false)} className="p-2 hover:bg-foreground/10 rounded-full transition-colors">
-                           <X className="w-5 h-5 text-secondary" />
-                         </button>
-                       )}
+                      <h4 className={cn("text-2xl font-black flex items-center gap-3", (!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? "text-accent" : "text-primary")}>
+                        {(!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? <RotateCw className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
+                        {!striker ? "Select Striker" : (!nonStriker && !isLMSActive) ? "Select Non-Striker" : isWicketPromptRequired ? "Next Batsman" : "Select Bowler"}
+                      </h4>
+                      {(isManualBowlerChange) && (
+                        <button onClick={() => setIsManualBowlerChange(false)} className="p-2 hover:bg-foreground/10 rounded-full transition-colors">
+                          <X className="w-5 h-5 text-secondary" />
+                        </button>
+                      )}
                     </div>
-                    
+
                     {!striker ? (
                       <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
                     ) : (!nonStriker && !isLMSActive) ? (
@@ -510,10 +540,10 @@ const Scoring = () => {
                     ) : (isWicketPending && !isLMSActive) ? (
                       <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
                     ) : (isBowlerChangeRequired || isManualBowlerChange || !currentBowler) ? (
-                      <SelectionList 
-                        items={currentInnings.bowling_team_players} 
-                        onSelect={handleSelectBowler} 
-                        color="accent" 
+                      <SelectionList
+                        items={currentInnings.bowling_team_players}
+                        onSelect={handleSelectBowler}
+                        color="accent"
                         disabledIds={restrictedBowlerId ? [restrictedBowlerId] : []}
                       />
                     ) : null}

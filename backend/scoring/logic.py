@@ -262,8 +262,9 @@ def check_match_conclusion(innings):
             if innings.total_runs > first_innings.total_runs:
                 match.winner = innings.batting_team
             elif innings.total_runs < first_innings.total_runs:
-                match.winner = match.team2 if innings.batting_team == match.team1 else match.team1
+                # The team that didn't bat in the 2nd innings is the winner
+                match.winner = match.team1 if innings.batting_team == match.team2 else match.team2
             else:
-                # Tie
-                pass 
+                # Tie - winner remains None
+                match.winner = None 
             match.save()

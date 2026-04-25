@@ -56,10 +56,26 @@ const Summary = () => {
           <Trophy className="w-32 h-32 text-primary" />
         </div>
         
-        <div className="text-center mb-8">
-          <p className="text-primary font-black uppercase tracking-[0.4em] text-[10px] mb-4">MATCH RESULT</p>
+        <div className="text-center mb-8 relative z-10">
+          <div className="flex justify-center mb-4">
+             <div className={cn(
+               "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2",
+               match.status === 'live' ? "bg-green-500/20 text-green-500 border border-green-500/20" : 
+               match.status === 'innings_break' ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/20" :
+               "bg-primary/20 text-primary border border-primary/20"
+             )}>
+               <span className={cn("w-2 h-2 rounded-full", match.status === 'live' ? "bg-green-500 animate-pulse" : match.status === 'innings_break' ? "bg-yellow-500" : "bg-primary")} />
+               {match.status === 'live' ? 'Live Match' : match.status === 'innings_break' ? 'Innings Break' : 'Match Result'}
+             </div>
+          </div>
+          
           <h1 className="text-4xl font-black mb-2 uppercase italic tracking-tight">
-            {match.winner ? `${match.winner_name} WON` : 'MATCH DRAWN'}
+            {match.status === 'completed' 
+              ? (match.winner ? `${match.winner_name} WON` : 'MATCH DRAWN')
+              : match.status === 'innings_break' 
+                ? 'INNINGS BREAK'
+                : 'MATCH IN PROGRESS'
+            }
           </h1>
           <div className="h-1 w-20 primary-gradient mx-auto rounded-full mb-4" />
           <p className="text-[10px] text-secondary font-black uppercase tracking-widest tabular-nums">

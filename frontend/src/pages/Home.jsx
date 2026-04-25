@@ -99,12 +99,10 @@ const Home = () => {
                   <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-8 min-w-0">
                     <div className="text-center min-w-[70px] sm:min-w-[100px]">
                       <p className="font-bold text-sm sm:text-lg truncate max-w-[80px] sm:max-w-none">{match.team1_name}</p>
-                      <span className="text-[9px] text-secondary uppercase font-bold sm:block hidden">Team A</span>
                     </div>
                     <div className="text-secondary font-black italic text-[10px] sm:text-base">VS</div>
                     <div className="text-center min-w-[70px] sm:min-w-[100px]">
                       <p className="font-bold text-sm sm:text-lg truncate max-w-[80px] sm:max-w-none">{match.team2_name}</p>
-                      <span className="text-[9px] text-secondary uppercase font-bold sm:block hidden">Team B</span>
                     </div>
                   </div>
 
@@ -123,13 +121,13 @@ const Home = () => {
 
                   {/* Actions (Right) */}
                   <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                    <button 
+                    <button
                       onClick={() => setDeleteConfirm(match)}
                       className="p-1.5 sm:p-2 text-secondary/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                     >
                       <Trash2 className="w-4 h-4 sm:w-5 h-5" />
                     </button>
-                    <Link 
+                    <Link
                       to={match.status === 'completed' ? `/summary/${match.id}` : `/scoring/${match.id}`}
                       className="p-2 sm:p-3 bg-foreground/5 hover:bg-primary/20 rounded-lg sm:rounded-xl transition-all"
                     >
