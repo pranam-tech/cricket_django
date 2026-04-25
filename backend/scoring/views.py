@@ -98,8 +98,13 @@ class InningsViewSet(viewsets.GenericViewSet):
     def record_ball(self, request, pk=None):
         innings_id = pk
         try:
-            ball = record_ball(innings_id, request.data)
-            return Response(MatchLiveSerializer(self.get_object()).data)
+            record_ball(innings_id, request.data)
+            match = Match.objects.select_related('team1', 'team2').prefetch_related(
+                'innings__batting_scores__player', 
+                'innings__bowling_scores__player',
+                'innings__balls__bowler'
+            ).get(innings__id=innings_id)
+            return Response(MatchLiveSerializer(match).data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -107,8 +112,13 @@ class InningsViewSet(viewsets.GenericViewSet):
     def undo_ball(self, request, pk=None):
         innings_id = pk
         try:
-            success = undo_ball(innings_id)
-            return Response(MatchLiveSerializer(self.get_object()).data)
+            undo_ball(innings_id)
+            match = Match.objects.select_related('team1', 'team2').prefetch_related(
+                'innings__batting_scores__player', 
+                'innings__bowling_scores__player',
+                'innings__balls__bowler'
+            ).get(innings__id=innings_id)
+            return Response(MatchLiveSerializer(match).data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -128,7 +138,12 @@ class InningsViewSet(viewsets.GenericViewSet):
             defaults={'is_at_crease': True, 'is_striker': not has_striker}
         )
         
-        return Response(MatchLiveSerializer(self.get_object()).data)
+        match = Match.objects.select_related('team1', 'team2').prefetch_related(
+            'innings__batting_scores__player', 
+            'innings__bowling_scores__player',
+            'innings__balls__bowler'
+        ).get(innings=innings)
+        return Response(MatchLiveSerializer(match).data)
 
     @action(detail=True, methods=['post'], url_path='next-bowler')
     def next_bowler(self, request, pk=None):
@@ -146,4 +161,9 @@ class InningsViewSet(viewsets.GenericViewSet):
         score.is_current = True
         score.save()
         
-        return Response(MatchLiveSerializer(self.get_object()).data)
+        match = Match.objects.select_related('team1', 'team2').prefetch_related(
+            'innings__batting_scores__player', 
+            'innings__bowling_scores__player',
+            'innings__balls__bowler'
+        ).get(innings=innings)
+        return Response(MatchLiveSerializer(match).data)
