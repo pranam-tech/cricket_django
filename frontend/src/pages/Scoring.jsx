@@ -56,29 +56,56 @@ const Scoring = () => {
   const handleBall = async (runs, extrasType = null, isWicket = false, wicketType = 'out') => {
     if (!striker || (!nonStriker && !isLMSActive) || !currentBowler || isProcessing) return;
 
+    // --- OPTIMISTIC UPDATE START ---
+    // We update the UI immediately before the network request finishes
+    const prevMatch = { ...match };
+    const newMatch = JSON.parse(JSON.stringify(match)); // Deep copy
+    const inn = newMatch.current_innings_data;
+    
+    // 1. Update Runs
+    let extrasRuns = 0;
+    if (extrasType === 'nb') extrasRuns = 1;
+    else if (extrasType === 'wd') extrasRuns = 1 + runs;
+    else if (extrasType === 'b' || extrasType === 'lb') extrasRuns = runs;
+    
+    inn.total_runs += (runs + extrasRuns);
+    if (isWicket) inn.total_wickets += 1;
+    if (!['wd', 'nb'].includes(extrasType)) inn.total_balls += 1;
+
+    // 2. Add fake ball to timeline for instant feedback
+    const fakeBall = {
+      id: 'temp-' + Date.now(),
+      runs_scored: runs,
+      extras_type: extrasType,
+      extras_runs: extrasRuns,
+      is_wicket: isWicket,
+      over_no: Math.floor(inn.total_balls / 6),
+      bowler_name: currentBowler.player_name
+    };
+    inn.balls.push(fakeBall);
+
+    // 3. Update player scores (simplified for speed)
+    const s = inn.batting_scores.find(b => b.player === striker.player);
+    if (s && !extrasType) {
+      s.runs += runs;
+      s.balls_faced += 1;
+    }
+    
+    setMatch(newMatch);
+    // --- OPTIMISTIC UPDATE END ---
+
     setIsProcessing(true);
-    const inningsId = match.current_innings_data.id;
+    const inningsId = inn.id;
     const data = {
       striker_id: striker.player,
-      non_striker_id: nonStriker?.player || striker.player, // Use striker as placeholder if no non-striker
+      non_striker_id: nonStriker?.player || striker.player,
       bowler_id: currentBowler.player,
       runs_scored: runs,
       extras_type: extrasType,
-      extras_runs: 0,
+      extras_runs: extrasRuns,
       is_wicket: isWicket,
       wicket_type: wicketType
     };
-
-    if (extrasType === 'nb') {
-      data.extras_runs = 1;
-      data.runs_scored = runs;
-    } else if (extrasType === 'wd') {
-      data.extras_runs = 1 + runs;
-      data.runs_scored = 0;
-    } else if (extrasType === 'b' || extrasType === 'lb') {
-      data.extras_runs = runs;
-      data.runs_scored = 0;
-    }
 
     try {
       await inningsApi.recordBall(inningsId, data);
@@ -86,9 +113,11 @@ const Scoring = () => {
       if (isWicket) {
         setIsWicketPending(true);
       }
-      await fetchState();
+      await fetchState(); // Sync with real server state
     } catch (err) {
       console.error(err);
+      setMatch(prevMatch); // Rollback on error
+      alert("Sync failed. Reverting to last saved state.");
     } finally {
       setIsProcessing(false);
     }
@@ -123,7 +152,23 @@ const Scoring = () => {
   };
 
   const handleUndo = async () => {
-    if (isProcessing) return;
+    if (isProcessing || !match?.current_innings_data?.balls?.length) return;
+
+    // --- OPTIMISTIC UPDATE START ---
+    const prevMatch = { ...match };
+    const newMatch = JSON.parse(JSON.stringify(match));
+    const inn = newMatch.current_innings_data;
+    const lastBall = inn.balls.pop();
+
+    if (lastBall) {
+      inn.total_runs -= (lastBall.runs_scored + lastBall.extras_runs);
+      if (lastBall.is_wicket) inn.total_wickets -= 1;
+      if (!['wd', 'nb'].includes(lastBall.extras_type)) inn.total_balls -= 1;
+    }
+    
+    setMatch(newMatch);
+    // --- OPTIMISTIC UPDATE END ---
+
     setIsProcessing(true);
     try {
       await inningsApi.undoBall(match.current_innings_data.id);
@@ -131,6 +176,8 @@ const Scoring = () => {
       await fetchState();
     } catch (err) {
       console.error(err);
+      setMatch(prevMatch);
+      alert("Undo failed. Reverting to last saved state.");
     } finally {
       setIsProcessing(false);
     }
