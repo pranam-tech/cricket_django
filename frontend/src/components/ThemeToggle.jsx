@@ -40,7 +40,7 @@ const ThemeToggle = () => {
   }, [theme, applyTheme]);
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-1 p-1.5 glass rounded-2xl shadow-2xl border-foreground/5">
+    <div className="theme-toggle fixed top-3 left-12 sm:top-auto sm:left-auto sm:bottom-6 sm:right-6 z-50 flex flex-row sm:flex-col gap-1 p-1 sm:p-1.5 glass rounded-xl sm:rounded-2xl shadow-2xl border-foreground/5">
       <button 
         onClick={() => setTheme('light')} 
         title="Light Mode"

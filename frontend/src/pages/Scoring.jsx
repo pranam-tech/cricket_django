@@ -328,10 +328,15 @@ const Scoring = () => {
   const restrictedBowlerId = previousOverBall?.bowler;
 
   return (
-    <div className="max-w-xl mx-auto p-4 h-screen flex flex-col bg-background selection:bg-primary/20 relative overflow-hidden">
+    <div className="max-w-xl mx-auto p-2 sm:p-4 min-h-screen flex flex-col bg-background selection:bg-primary/20 relative overflow-y-auto">
+      <style>{`
+        @media (max-width: 640px) {
+          .theme-toggle { display: none !important; }
+        }
+      `}</style>
       {/* ... (Processing overlay remains) ... */}
 
-      <header className="flex justify-between items-center mb-4 shrink-0">
+      <header className="flex justify-between items-center mb-1 sm:mb-4 shrink-0">
         <button onClick={() => navigate('/')} className="p-2 glass rounded-lg text-secondary hover:text-foreground transition-colors">
           <Home className="w-5 h-5" />
         </button>
@@ -350,7 +355,7 @@ const Scoring = () => {
       </header>
 
       {match.status !== 'completed' && (
-        <div className="flex bg-foreground/5 p-1 rounded-2xl mb-4 border border-foreground/10 shrink-0">
+        <div className="flex bg-foreground/5 p-1 rounded-2xl mb-1 sm:mb-4 border border-foreground/10 shrink-0">
           <button
             onClick={() => setActiveView('scoring')}
             className={`flex-1 py-2 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${activeView === 'scoring' ? 'primary-gradient text-white' : 'text-secondary'}`}
@@ -413,20 +418,20 @@ const Scoring = () => {
           </div>
         ) : (
           <>
-            <motion.div layoutId="scorecard" className="glass-card mb-2 relative overflow-hidden p-6 border-b-4 border-primary shadow-2xl shadow-primary/10 shrink-0">
+            <motion.div layoutId="scorecard" className="glass-card mb-1 sm:mb-2 relative overflow-hidden p-3 sm:p-6 border-b-4 border-primary shadow-2xl shadow-primary/10 shrink-0">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-[10px] text-primary font-black uppercase tracking-[0.3em] mb-1">{currentInnings?.batting_team_name}</p>
                   <div className="flex items-baseline gap-1">
-                    <h1 className="text-6xl font-black tabular-nums tracking-tighter">{currentInnings?.total_runs || 0}</h1>
+                    <h1 className="text-5xl sm:text-6xl font-black tabular-nums tracking-tighter">{currentInnings?.total_runs || 0}</h1>
                     <span className="text-3xl font-black text-primary/40">/</span>
-                    <h2 className="text-4xl font-black text-primary tabular-nums">{currentInnings?.total_wickets || 0}</h2>
+                    <h2 className="text-3xl sm:text-4xl font-black text-primary tabular-nums">{currentInnings?.total_wickets || 0}</h2>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-secondary/80 font-black uppercase tracking-[0.3em] mb-1">OVERS</p>
                   <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-4xl font-black tabular-nums">{Math.floor((currentInnings?.total_balls || 0) / 6)}</span>
+                    <span className="text-3xl sm:text-4xl font-black tabular-nums">{Math.floor((currentInnings?.total_balls || 0) / 6)}</span>
                     <span className="text-xl font-black text-secondary">.{(currentInnings?.total_balls || 0) % 6}</span>
                     <span className="text-sm font-black text-secondary/40 ml-1">/ {match.overs}</span>
                   </div>
@@ -455,7 +460,7 @@ const Scoring = () => {
             </motion.div>
 
             {/* Timeline */}
-            <div ref={timelineRef} className="mb-2 flex items-center gap-2 overflow-x-auto pb-1 px-1 shrink-0 scroll-smooth custom-scrollbar">
+            <div ref={timelineRef} className="mb-0.5 sm:mb-2 flex items-center gap-2 overflow-x-auto pb-1 px-1 shrink-0 scroll-smooth custom-scrollbar">
               <AnimatePresence mode="popLayout">
                 {currentInnings?.balls?.slice(-18).map((ball, idx, arr) => {
                   const showSeparator = idx > 0 && ball.over_no !== arr[idx - 1].over_no;
@@ -476,25 +481,25 @@ const Scoring = () => {
             </div>
 
             {/* Batsmen */}
-            <div className="grid grid-cols-2 gap-3 mb-2 shrink-0">
-              <div className={cn("glass-card p-4 border-l-4 transition-all", striker?.is_striker ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-0.5 sm:mb-2 shrink-0">
+              <div className={cn("glass-card p-2 sm:p-4 border-l-4 transition-all", striker?.is_striker ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
                 <p className="text-[8px] font-black text-secondary uppercase tracking-widest mb-1">Striker</p>
                 <div className="flex justify-between items-end">
                   <p className="font-black text-sm truncate flex-1 mr-2">{striker?.player_name || '—'}</p>
-                  <p className="text-2xl font-black shrink-0">{striker?.runs || 0}<span className="text-[10px] text-secondary font-bold ml-1">({striker?.balls_faced || 0})</span></p>
+                  <p className="text-xl sm:text-2xl font-black shrink-0">{striker?.runs || 0}<span className="text-[10px] text-secondary font-bold ml-1">({striker?.balls_faced || 0})</span></p>
                 </div>
               </div>
-              <div className={cn("glass-card p-4 border-l-4 transition-all", !striker?.is_striker && nonStriker?.is_at_crease ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
+              <div className={cn("glass-card p-2 sm:p-4 border-l-4 transition-all", !striker?.is_striker && nonStriker?.is_at_crease ? "border-primary bg-primary/5" : "border-transparent opacity-60")}>
                 <p className="text-[8px] font-black text-secondary uppercase tracking-widest mb-1">Non-Striker</p>
                 <div className="flex justify-between items-end">
                   <p className="font-black text-sm truncate flex-1 mr-2">{nonStriker?.player_name || '—'}</p>
-                  <p className="text-2xl font-black shrink-0">{nonStriker?.runs || 0}<span className="text-[10px] text-secondary font-bold ml-1">({nonStriker?.balls_faced || 0})</span></p>
+                  <p className="text-xl sm:text-2xl font-black shrink-0">{nonStriker?.runs || 0}<span className="text-[10px] text-secondary font-bold ml-1">({nonStriker?.balls_faced || 0})</span></p>
                 </div>
               </div>
             </div>
 
             {/* Bowler Bar */}
-            <div className="glass-card p-3 mb-2 flex justify-between items-center bg-accent/5 border-l-4 border-accent/40 shrink-0">
+            <div className="glass-card p-1.5 sm:p-3 mb-0.5 sm:mb-2 flex justify-between items-center bg-accent/5 border-l-4 border-accent/40 shrink-0">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-accent" /></div>
                 <div className="overflow-hidden">
@@ -517,10 +522,10 @@ const Scoring = () => {
             </div>
 
             {/* Controls Section */}
-            <div className="mt-auto relative pb-2 shrink-0">
+            <div className="mt-auto relative pb-1 sm:pb-2 shrink-0">
               <AnimatePresence>
                 {(isInitialSetupRequired || isWicketPromptRequired || isBowlerChangeRequired || isManualBowlerChange) && (
-                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="absolute inset-x-0 bottom-0 z-20 glass-card bg-background/95 backdrop-blur-xl border-primary p-6 shadow-2xl">
+                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="absolute inset-x-0 bottom-0 z-20 glass-card bg-background/95 backdrop-blur-xl border-primary p-4 sm:p-6 shadow-2xl">
                     <div className="flex justify-between items-center mb-4">
                       <h4 className={cn("text-2xl font-black flex items-center gap-3", (!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? "text-accent" : "text-primary")}>
                         {(!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? <RotateCw className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
@@ -551,7 +556,7 @@ const Scoring = () => {
                 )}
               </AnimatePresence>
 
-              <div className={cn("space-y-3", (isInitialSetupRequired || isBowlerChangeRequired || isWicketPending) && "opacity-10 pointer-events-none")}>
+              <div className={cn("space-y-2 sm:space-y-3", (isInitialSetupRequired || isBowlerChangeRequired || isWicketPending) && "opacity-10 pointer-events-none")}>
                 {extraMode ? (
                   <div className="glass-card p-4 border-2 border-yellow-500/50 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex justify-between items-center mb-4">
@@ -572,19 +577,19 @@ const Scoring = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-3">
                       {[0, 1, 2, 3, 4, 6].map(runs => (
-                        <button key={runs} onClick={() => handleBall(runs)} className="glass-card h-16 flex items-center justify-center text-3xl font-black hover:bg-primary/10 transition-all">
+                        <button key={runs} onClick={() => handleBall(runs)} className="glass-card h-10 sm:h-16 p-0 flex items-center justify-center text-2xl sm:text-3xl font-black hover:bg-primary/10 transition-all">
                           {runs}
                         </button>
                       ))}
-                      <button onClick={() => setExtraMode('wd')} className="glass-card h-16 flex items-center justify-center text-xl font-black text-yellow-500">WD</button>
-                      <button onClick={() => setExtraMode('nb')} className="glass-card h-16 flex items-center justify-center text-xl font-black text-yellow-500">NB</button>
+                      <button onClick={() => setExtraMode('wd')} className="glass-card h-10 sm:h-16 p-0 flex items-center justify-center text-lg sm:text-xl font-black text-yellow-500">WD</button>
+                      <button onClick={() => setExtraMode('nb')} className="glass-card h-10 sm:h-16 p-0 flex items-center justify-center text-lg sm:text-xl font-black text-yellow-500">NB</button>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <button onClick={() => setExtraMode('b')} className="glass-card h-14 flex items-center justify-center text-xs font-black text-secondary uppercase">Bye</button>
-                      <button onClick={() => setExtraMode('lb')} className="glass-card h-14 flex items-center justify-center text-xs font-black text-secondary uppercase">Leg-Bye</button>
-                      <button onClick={() => handleBall(0, null, true)} className="glass-card h-14 flex items-center justify-center accent-gradient border-none text-red-500 text-lg font-black uppercase shadow-lg shadow-accent/20">Wicket</button>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                      <button onClick={() => setExtraMode('b')} className="glass-card h-8 sm:h-14 p-0 flex items-center justify-center text-[10px] sm:text-xs font-black text-secondary uppercase">Bye</button>
+                      <button onClick={() => setExtraMode('lb')} className="glass-card h-8 sm:h-14 p-0 flex items-center justify-center text-[10px] sm:text-xs font-black text-secondary uppercase">Leg-Bye</button>
+                      <button onClick={() => handleBall(0, null, true)} className="glass-card h-8 sm:h-14 p-0 flex items-center justify-center accent-gradient border-none text-red-500 text-sm sm:text-lg font-black uppercase shadow-lg shadow-accent/20">Wicket</button>
                     </div>
                   </>
                 )}
@@ -598,7 +603,7 @@ const Scoring = () => {
 };
 
 const SelectionList = ({ items, onSelect, color = "primary", disabledIds = [] }) => (
-  <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+  <div className="grid grid-cols-2 gap-2 sm:gap-4 max-h-[180px] sm:max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
     {items.length > 0 ? items.map(p => (
       <button key={p.id} disabled={disabledIds.includes(p.id)} onClick={() => onSelect(p.id)}
         className={cn("glass-button py-4 text-sm font-black border-foreground/10 transition-all", disabledIds.includes(p.id) ? "opacity-20 grayscale cursor-not-allowed" : color === "primary" ? "hover:bg-primary/20" : "hover:bg-accent/20")}
