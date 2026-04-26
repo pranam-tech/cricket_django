@@ -264,8 +264,8 @@ class ScorekeeperRequestCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         user = self.context['request'].user
-        if user.profile.user_type != UserProfile.USER:
-            raise serializers.ValidationError('Only users can request scorekeeper access.')
+        if user.profile.user_type not in {UserProfile.USER, UserProfile.ADMIN}:
+            raise serializers.ValidationError('Only users or admins can request scorekeeper access.')
         if ScorekeeperRequest.objects.filter(user=user, status=ScorekeeperRequest.STATUS_PENDING).exists():
             raise serializers.ValidationError('You already have a pending request.')
         return attrs
@@ -273,3 +273,30 @@ class ScorekeeperRequestCreateSerializer(serializers.ModelSerializer):
 
 class ScorekeeperRequestReviewSerializer(serializers.Serializer):
     review_note = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class AdminPromoteScorekeeperToManagerSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+
+    def validate_user_id(self, value):
+        user = User.objects.filter(id=value).select_related('profile').first()
+        if user is None:
+            raise serializers.ValidationError('User not found.')
+        if user.profile.user_type != UserProfile.SCOREKEEPER:
+            raise serializers.ValidationError('Only scorekeepers can be promoted to manager.')
+        self.context['target_user'] = user
+        return value
+
+
+class AdminPromoteUserSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    target_role = serializers.ChoiceField(choices=[UserProfile.SCOREKEEPER, UserProfile.MANAGER])
+
+    def validate(self, attrs):
+        user = User.objects.filter(id=attrs['user_id']).select_related('profile').first()
+        if user is None:
+            raise serializers.ValidationError({'user_id': 'User not found.'})
+        if user.profile.user_type != UserProfile.USER:
+            raise serializers.ValidationError({'user_id': 'Only regular users can be promoted through this action.'})
+        self.context['target_user'] = user
+        return attrs

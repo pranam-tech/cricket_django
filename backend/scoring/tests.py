@@ -282,11 +282,13 @@ class ScoringLogicTest(TestCase):
 class MatchAPITest(APITestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username='manager_api', password='secret123')
+        self.admin = User.objects.create_superuser(username='admin_api', password='secret123')
         self.scorekeeper = User.objects.create_user(username='scorekeeper_api', password='secret123')
         self.scorekeeper.profile.user_type = UserProfile.SCOREKEEPER
         self.scorekeeper.profile.save(update_fields=['user_type'])
         self.user = User.objects.create_user(username='viewer_api', password='secret123')
         self.manager_token = Token.objects.create(user=self.manager)
+        self.admin_token = Token.objects.create(user=self.admin)
         self.scorekeeper_token = Token.objects.create(user=self.scorekeeper)
         self.user_token = Token.objects.create(user=self.user)
         self.team1 = Team.objects.create(name="India")
@@ -433,6 +435,14 @@ class MatchAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(ScorekeeperRequest.objects.filter(user=self.user).count(), 1)
 
+    def test_admin_can_use_user_action_scorekeeper_request(self):
+        self.authenticate(self.admin_token)
+        response = self.client.post('/api/scorekeeper-requests/', {
+            'message': 'Admin can also request if needed.'
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ScorekeeperRequest.objects.filter(user=self.admin).count(), 1)
+
     def test_manager_can_approve_scorekeeper_request(self):
         request_record = ScorekeeperRequest.objects.create(user=self.user, message='Ready to help')
         self.authenticate(self.manager_token)
@@ -469,3 +479,57 @@ class MatchAPITest(APITestCase):
         }, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_record_ball(self):
+        self.authenticate(self.admin_token)
+        batter1 = Player.objects.create(name="Rohit", team=self.team1)
+        batter2 = Player.objects.create(name="Gill", team=self.team1)
+        bowler = Player.objects.create(name="Starc", team=self.team2)
+        match = Match.objects.create(team1=self.team1, team2=self.team2, overs=20, players_per_team=2, status='live', current_innings_no=1)
+        innings = Innings.objects.create(match=match, innings_no=1, batting_team=self.team1, bowling_team=self.team2)
+        BattingScore.objects.create(innings=innings, player=batter1, is_at_crease=True, is_striker=True)
+        BattingScore.objects.create(innings=innings, player=batter2, is_at_crease=True, is_striker=False)
+        BowlingScore.objects.create(innings=innings, player=bowler, is_current=True)
+
+        response = self.client.post(f'/api/innings/{innings.id}/ball/', {
+            'striker_id': str(batter1.id),
+            'non_striker_id': str(batter2.id),
+            'bowler_id': str(bowler.id),
+            'runs_scored': 1,
+            'extras_type': None,
+            'extras_runs': 0,
+            'is_wicket': False,
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_admin_can_promote_scorekeeper_to_manager(self):
+        self.authenticate(self.admin_token)
+        response = self.client.post('/api/auth/promotions/', {
+            'action': 'scorekeeper_to_manager',
+            'user_id': self.scorekeeper.id,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.scorekeeper.refresh_from_db()
+        self.assertEqual(self.scorekeeper.profile.user_type, UserProfile.MANAGER)
+
+    def test_admin_can_promote_user_to_scorekeeper_or_manager(self):
+        self.authenticate(self.admin_token)
+        response = self.client.post('/api/auth/promotions/', {
+            'action': 'user_promotion',
+            'user_id': self.user.id,
+            'target_role': UserProfile.SCOREKEEPER,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.profile.user_type, UserProfile.SCOREKEEPER)
+
+        promoted_user = User.objects.create_user(username='another_user', password='secret123')
+        response = self.client.post('/api/auth/promotions/', {
+            'action': 'user_promotion',
+            'user_id': promoted_user.id,
+            'target_role': UserProfile.MANAGER,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        promoted_user.refresh_from_db()
+        self.assertEqual(promoted_user.profile.user_type, UserProfile.MANAGER)

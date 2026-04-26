@@ -1,89 +1,141 @@
 # CricTracker: Professional Cricket Scoring Platform
 
-A robust, full-stack cricket scoring application built with Django and React. Designed for real-time match tracking, detailed scorecards, and tournament management.
+A full-stack cricket scoring platform built with Django + React for tournament management, live scoring, and role-based operations.
 
-## 🚀 Tech Stack
+## Tech Stack
 
-- **Backend**: Django 6.0+, Django REST Framework
-- **Frontend**: React 19, Vite, Tailwind CSS, Framer Motion
-- **Database**: PostgreSQL (Development supports SQLite)
-- **Icons**: Lucide React
+- Backend: Django, Django REST Framework, Token auth
+- Frontend: React (Vite), React Router, Axios
+- Database: PostgreSQL (recommended for production), SQLite (local dev)
+- Deployment: Vercel (serverless Python + static frontend)
 
-## ✨ Features
+## Current Features
 
-- **Live Scoring**: Real-time ball-by-ball updates with strike rotation logic.
-- **Match Management**: Setup quick matches with custom team names and player counts.
-- **Detailed Scorecards**: Comprehensive batting and bowling statistics for both innings.
-- **Undo Functionality**: Correct mistakes easily with atomic undo operations that revert all stats.
-- **Last Man Stands Mode**: Support for specialized cricket formats where the last batsman stays on strike.
-- **Responsive UI**: A modern, premium interface optimized for both mobile and desktop use.
+- Live ball-by-ball scoring with undo support.
+- Match and tournament setup with detailed innings scorecards.
+- Last Man Stands scoring flow.
+- Role-based permissions with four roles:
+  - `admin`
+  - `manager`
+  - `scorekeeper`
+  - `user`
+- Scorekeeper request workflow (request, approve, reject).
+- Admin role extensions:
+  - Admin can perform manager, scorekeeper, and user actions.
+  - Admin can promote scorekeepers to managers.
+  - Admin can promote users to scorekeepers or managers.
 
-## 🛠️ Getting Started
+## Role and Promotion API
 
-### 1. Clone the repository
+- `POST /api/auth/promotions/` (admin only)
+  - Promote scorekeeper -> manager:
+    - `{"action":"scorekeeper_to_manager","user_id":<id>}`
+  - Promote user -> scorekeeper/manager:
+    - `{"action":"user_promotion","user_id":<id>,"target_role":"scorekeeper"}`
+    - `{"action":"user_promotion","user_id":<id>,"target_role":"manager"}`
+
+## Local Development
+
+### 1) Clone and install
+
 ```bash
 git clone <repository-url>
 cd cricket_django
-```
-
-### 2. Backend Setup
-```bash
-# Activate virtual environment
+python -m venv venv
 source venv/bin/activate
-
-# Install dependencies
 pip install -r backend/requirements.txt
-
-# Run migrations
-cd backend
-python manage.py migrate
-cd ..
+npm --prefix frontend install
 ```
 
-### 3. Frontend Setup
+### 2) Migrate database
+
 ```bash
-cd frontend
-npm install
-cd ..
+./venv/bin/python backend/manage.py migrate
 ```
 
-## 🏃 Running the Project
+### 3) Run the app
 
-### Start Backend
 ```bash
-cd backend
-python manage.py runserver
+./start.sh
 ```
 
-### Start Frontend
+Or run services separately:
+
 ```bash
-cd frontend
-npm run dev
+# backend
+./venv/bin/python backend/manage.py runserver
+
+# frontend
+npm --prefix frontend run dev
 ```
 
-### Stopping Servers
-Use the provided utility script to kill both servers at once:
+Stop servers:
+
 ```bash
 ./stop.sh
 ```
 
-## 📁 Project Structure
+## Create an Admin Locally
 
+```bash
+./venv/bin/python backend/manage.py createsuperuser
 ```
+
+## Vercel Deployment
+
+This repo is configured for Vercel using:
+
+- `api/index.py` for Django serverless entrypoint
+- `api/requirements.txt` for Python dependencies
+- `vercel.json` for API/static routing
+- Root build script for frontend build output
+
+### 1) Required environment variables (Vercel Project Settings)
+
+- `SECRET_KEY` = strong random secret
+- `DEBUG` = `False`
+- `ALLOWED_HOSTS` = your Vercel domains (comma-separated), e.g. `your-app.vercel.app`
+- `CORS_ALLOWED_ORIGINS` = frontend origin(s), e.g. `https://your-app.vercel.app`
+- `DATABASE_URL` = Postgres connection string
+
+### 2) Deploy
+
+```bash
+vercel
+```
+
+For production:
+
+```bash
+vercel --prod
+```
+
+### 3) Run migrations on production database
+
+After setting `DATABASE_URL`, run migrations against your production DB from a trusted environment:
+
+```bash
+./venv/bin/python backend/manage.py migrate
+```
+
+## Project Structure
+
+```text
 cricket_django/
-├── backend/            # Django project & apps
-│   ├── cricket_backend/# Core settings and config
-│   ├── scoring/        # Main logic for cricket scoring (Models, Views, Serializers)
+├── api/                      # Vercel Python entrypoint
+│   ├── index.py
+│   └── requirements.txt
+├── backend/
+│   ├── cricket_backend/      # Django settings and URL config
+│   ├── scoring/              # Domain app (models, views, serializers, tests)
 │   └── manage.py
-├── frontend/           # React + Vite application
-│   ├── src/
-│   │   ├── components/ # Reusable UI components
-│   │   ├── pages/      # View components (MatchSetup, Scoring, Summary, etc.)
-│   │   └── api.js      # Frontend API client
-├── stop.sh             # Utility script to stop all servers
-└── start.sh            # Utility script to start backend and frontend
+├── frontend/
+│   └── src/
+├── start.sh
+├── stop.sh
+└── vercel.json
 ```
 
-## 📜 License
+## License
 
 MIT

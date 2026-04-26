@@ -23,6 +23,8 @@ from .models import (
 )
 from .permissions import AuthenticatedReadOnlyOrManager, CanScoreLiveMatches, IsManagerOrAdmin
 from .serializers import (
+    AdminPromoteScorekeeperToManagerSerializer,
+    AdminPromoteUserSerializer,
     LoginSerializer,
     MatchListSerializer,
     MatchLiveSerializer,
@@ -106,6 +108,33 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class AdminPromotionView(APIView):
+    permission_classes = [IsAuthenticated, IsManagerOrAdmin]
+
+    def post(self, request):
+        if request.user.profile.user_type != UserProfile.ADMIN:
+            return Response({'error': 'Only admins can perform promotions.'}, status=status.HTTP_403_FORBIDDEN)
+
+        action = request.data.get('action')
+        if action == 'scorekeeper_to_manager':
+            serializer = AdminPromoteScorekeeperToManagerSerializer(data=request.data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            target_user = serializer.context['target_user']
+            target_user.profile.user_type = UserProfile.MANAGER
+            target_user.profile.save(update_fields=['user_type'])
+            return Response({'user': UserSerializer(target_user).data})
+
+        if action == 'user_promotion':
+            serializer = AdminPromoteUserSerializer(data=request.data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            target_user = serializer.context['target_user']
+            target_user.profile.user_type = serializer.validated_data['target_role']
+            target_user.profile.save(update_fields=['user_type'])
+            return Response({'user': UserSerializer(target_user).data})
+
+        return bad_request('Invalid action. Use "scorekeeper_to_manager" or "user_promotion".')
 
 
 class TournamentViewSet(viewsets.ModelViewSet):

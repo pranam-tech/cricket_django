@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "if [ -n \"$VIRTUAL_ENV\" ]; then python backend/manage.py collectstatic --noinput; elif command -v uv >/dev/null 2>&1; then UV_CACHE_DIR=/tmp/uv-cache uv run --python 3.12 --with-requirements backend/requirements.txt python backend/manage.py collectstatic --noinput; else python backend/manage.py collectstatic --noinput; fi && npm --prefix frontend ci && npm --prefix frontend run build"
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build"
   },
   "workspaces": [
     "frontend",
