@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput && npm --prefix frontend ci && npm --prefix frontend run build"
+    "build": "if [ -n \"$VIRTUAL_ENV\" ]; then python -m pip install -r backend/requirements.txt; elif command -v uv >/dev/null 2>&1; then UV_CACHE_DIR=/tmp/uv-cache uv pip install --system -r backend/requirements.txt; else python -m pip install -r backend/requirements.txt; fi && python backend/manage.py collectstatic --noinput && npm --prefix frontend ci && npm --prefix frontend run build"
   },
   "workspaces": [
     "frontend",
