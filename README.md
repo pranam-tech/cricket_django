@@ -79,9 +79,9 @@ cricket_django/
 │   ├── src/
 │   │   ├── components/ # Reusable UI components
 │   │   ├── pages/      # View components (MatchSetup, Scoring, Summary, etc.)
-│   │   └── context/    # Global state management
+│   │   └── api.js      # Frontend API client
 ├── stop.sh             # Utility script to stop all servers
-└── migration_specification.md # Technical documentation & migration guide
+└── start.sh            # Utility script to start backend and frontend
 ```
 
 ## 📜 License

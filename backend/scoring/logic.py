@@ -1,5 +1,9 @@
 from django.db import transaction
-from .models import BallEvent, BattingScore, BowlingScore, Innings, Match
+from .models import BallEvent, BattingScore, BowlingScore, Innings
+
+
+def should_credit_bowler_for_wicket(wicket_type):
+    return wicket_type not in ['run_out', 'retired_hurt', 'timed_out']
 
 def record_ball(innings_id, data):
     """
@@ -18,6 +22,8 @@ def record_ball(innings_id, data):
     with transaction.atomic():
         innings = Innings.objects.select_for_update().get(id=innings_id)
         match = innings.match
+        if innings.is_completed or match.status == 'completed':
+            raise ValueError('This innings is already complete.')
         
         striker_score = BattingScore.objects.get(innings=innings, player_id=data['striker_id'])
         non_striker_score = BattingScore.objects.get(innings=innings, player_id=data['non_striker_id'])
@@ -57,7 +63,9 @@ def record_ball(innings_id, data):
             striker_score.is_at_crease = False
             striker_score.is_striker = False
             striker_score.wicket_type = data.get('wicket_type')
-            striker_score.dismissed_by_id = data['bowler_id']
+            striker_score.dismissed_by_id = (
+                data['bowler_id'] if should_credit_bowler_for_wicket(data.get('wicket_type')) else None
+            )
             
             # LMS: If this was the second to last wicket, the non-striker becomes the last man (striker)
             total_players = innings.batting_team.players.count()
@@ -89,7 +97,7 @@ def record_ball(innings_id, data):
             
         bowler_score.runs_conceded += bowler_runs
         
-        if data.get('is_wicket') and data.get('wicket_type') not in ['run_out', 'retired_hurt', 'timed_out']:
+        if data.get('is_wicket') and should_credit_bowler_for_wicket(data.get('wicket_type')):
             bowler_score.wickets += 1
         bowler_score.save()
         
@@ -213,6 +221,7 @@ def undo_ball(innings_id):
         
         # Restore Match status if it was completed
         match = innings.match
+        innings.is_completed = False
         if match.status == 'completed':
             match.status = 'live'
             match.winner = None
@@ -220,6 +229,7 @@ def undo_ball(innings_id):
         elif match.status == 'innings_break':
             match.status = 'live'
             match.save()
+        innings.save(update_fields=['total_runs', 'total_balls', 'total_extras', 'total_wickets', 'is_completed'])
             
         last_ball.delete()
         return True
@@ -251,7 +261,7 @@ def check_match_conclusion(innings):
 
     if innings_over:
         innings.is_completed = True
-        innings.save()
+        innings.save(update_fields=['is_completed'])
         if innings.innings_no == 1:
             match.status = 'innings_break'
             match.save()

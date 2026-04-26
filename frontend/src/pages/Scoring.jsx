@@ -1,13 +1,26 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { matchApi, inningsApi } from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Undo2, Trophy, RotateCw, AlertCircle, X, UserPlus, ShieldAlert, Home, User, Play } from 'lucide-react';
+import { Undo2, Trophy, RotateCw, X, UserPlus, Home, User, Play } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
+}
+
+function needsIncomingBatsmanSelection(matchState) {
+  const innings = matchState?.current_innings_data;
+  if (!innings) return false;
+
+  const battingScores = innings.batting_scores || [];
+  const availableBatsmen = (innings.batting_team_players || []).filter(
+    (player) => !battingScores.some((score) => score.player === player.id)
+  );
+  const isLMSActive = matchState?.last_man_stands && availableBatsmen.length === 0;
+
+  return !isLMSActive && availableBatsmen.length > 0;
 }
 
 const Scoring = () => {
@@ -23,36 +36,64 @@ const Scoring = () => {
   const [isWicketPending, setIsWicketPending] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isManualBowlerChange, setIsManualBowlerChange] = useState(false);
+  const tempBallIdRef = useRef(0);
+
+  const loadMatchState = useCallback(async () => {
+    const res = await matchApi.getLive(matchId);
+    return res.data;
+  }, [matchId]);
 
   const fetchState = useCallback(async () => {
     try {
-      const res = await matchApi.getLive(matchId);
-      setMatch(res.data);
+      const data = await loadMatchState();
+      setMatch(data);
       setLoading(false);
-    } catch (err) {
-      console.error(err);
+      return data;
+    } catch (error) {
+      console.error(error);
       setError("Failed to load match state");
       setLoading(false);
+      return null;
     }
-  }, [matchId]);
+  }, [loadMatchState]);
 
   useEffect(() => {
-    fetchState();
-  }, [fetchState]);
+    let cancelled = false;
+
+    const initialize = async () => {
+      try {
+        const data = await loadMatchState();
+        if (cancelled) return;
+        setMatch(data);
+      } catch (error) {
+        if (cancelled) return;
+        console.error(error);
+        setError("Failed to load match state");
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initialize();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadMatchState]);
 
   const handleStartInnings = async (inningsNo, teamId) => {
     setIsProcessing(true);
     try {
       await matchApi.startInnings(matchId, { innings_no: inningsNo, batting_team_id: teamId });
       await fetchState();
-    } catch (err) {
+    } catch (error) {
+      console.error(error);
       alert("Failed to start innings");
     } finally {
       setIsProcessing(false);
     }
   };
-
-  // ... (rest of the functions remain same, but I'll make sure they are not duplicated)
 
   const handleBall = async (runs, extrasType = null, isWicket = false, wicketType = 'out') => {
     if (!striker || (!nonStriker && !isLMSActive) || !currentBowler || isProcessing) return;
@@ -85,8 +126,9 @@ const Scoring = () => {
     if (!['wd', 'nb'].includes(extrasType)) inn.total_balls += 1;
 
     // 2. Add fake ball to timeline for instant feedback
+    tempBallIdRef.current += 1;
     const fakeBall = {
-      id: 'temp-' + Date.now(),
+      id: `temp-${tempBallIdRef.current}`,
       runs_scored: batterRuns,
       extras_type: extrasType,
       extras_runs: extrasRuns,
@@ -142,12 +184,10 @@ const Scoring = () => {
     try {
       await inningsApi.recordBall(inningsId, data);
       setExtraMode(null);
-      if (isWicket) {
-        setIsWicketPending(true);
-      }
-      await fetchState(); // Sync with real server state
-    } catch (err) {
-      console.error(err);
+      const updatedMatch = await fetchState(); // Sync with real server state
+      setIsWicketPending(isWicket && needsIncomingBatsmanSelection(updatedMatch));
+    } catch (error) {
+      console.error(error);
       setMatch(prevMatch); // Rollback on error
       alert("Sync failed. Reverting to last saved state.");
     } finally {
@@ -162,7 +202,8 @@ const Scoring = () => {
       await inningsApi.nextBatsman(match.current_innings_data.id, { player_id: playerId });
       setIsWicketPending(false);
       await fetchState();
-    } catch (err) {
+    } catch (error) {
+      console.error(error);
       alert("Failed to select batsman");
     } finally {
       setIsProcessing(false);
@@ -176,7 +217,8 @@ const Scoring = () => {
       await inningsApi.nextBowler(match.current_innings_data.id, { player_id: playerId });
       setExtraMode(null);
       await fetchState();
-    } catch (err) {
+    } catch (error) {
+      console.error(error);
       alert("Failed to select bowler");
     } finally {
       setIsProcessing(false);
@@ -260,8 +302,8 @@ const Scoring = () => {
       await inningsApi.undoBall(match.current_innings_data.id);
       setIsWicketPending(false);
       await fetchState();
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       setMatch(prevMatch);
       alert("Undo failed. Reverting to last saved state.");
     } finally {
@@ -276,22 +318,6 @@ const Scoring = () => {
       timelineRef.current.scrollLeft = timelineRef.current.scrollWidth;
     }
   }, [match?.current_innings_data?.balls?.length]);
-
-  // Automatically clear wicket pending state if we've entered LMS or have no more players
-  useEffect(() => {
-    if (match && isWicketPending) {
-      const currentInnings = match.current_innings_data;
-      if (currentInnings) {
-        const availableCount = currentInnings.batting_team_players?.filter(p =>
-          !currentInnings.batting_scores.some(bs => bs.player === p.id)
-        ).length || 0;
-
-        if (availableCount === 0) {
-          setIsWicketPending(false);
-        }
-      }
-    }
-  }, [isWicketPending, match]);
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-background"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (error) return <div className="p-10 text-center">{error}</div>;
@@ -313,14 +339,18 @@ const Scoring = () => {
   const isLMSActive = match.last_man_stands && availableBatsmen.length === 0;
 
   const isBowlerChangeRequired = overEnded && lastBallWasLegal && currentBowler?.player === lastBall?.bowler;
-  const isInitialSetupRequired = currentInnings && (
-    !striker ||
-    (!nonStriker && !isLMSActive) ||
-    !currentBowler
-  );
-
   const isWicketPromptRequired = isWicketPending && !isLMSActive && availableBatsmen.length > 0;
   const isMatchCompleted = match.status === 'completed';
+  const promptType = !striker
+    ? 'striker'
+    : (!nonStriker && !isLMSActive)
+      ? 'non_striker'
+      : isWicketPromptRequired
+        ? 'next_batsman'
+        : (isBowlerChangeRequired || isManualBowlerChange || !currentBowler)
+          ? 'bowler'
+          : null;
+  const shouldBlockScoringControls = Boolean(promptType);
 
   // Identify restricted bowler (who bowled the previous over)
   const currentOverNo = Math.floor((currentInnings?.total_balls || 0) / 6);
@@ -460,7 +490,7 @@ const Scoring = () => {
                 {currentInnings?.balls?.slice(-18).map((ball, idx, arr) => {
                   const showSeparator = idx > 0 && ball.over_no !== arr[idx - 1].over_no;
                   return (
-                    <React.Fragment key={ball.id}>
+                    <Fragment key={ball.id}>
                       {showSeparator && (
                         <div className="flex flex-col items-center gap-1 shrink-0 px-1">
                           <div className="w-[1px] h-6 bg-foreground/20" />
@@ -469,7 +499,7 @@ const Scoring = () => {
                       <div className={cn("min-w-[2.5rem] h-10 flex items-center justify-center text-[10px] font-black rounded-xl border shrink-0", ball.is_wicket ? "bg-accent/20 border-accent/40 text-accent" : (ball.runs_scored + ball.extras_runs) >= 4 ? "bg-primary/20 border-primary/40 text-primary" : "bg-foreground/5 border-foreground/10 text-secondary")}>
                         {ball.is_wicket ? 'W' : (ball.extras_type ? `${ball.runs_scored + ball.extras_runs}${ball.extras_type.toUpperCase()}` : ball.runs_scored)}
                       </div>
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </AnimatePresence>
@@ -519,12 +549,18 @@ const Scoring = () => {
             {/* Controls Section */}
             <div className="mt-auto relative pb-1 sm:pb-2 shrink-0">
               <AnimatePresence>
-                {(isInitialSetupRequired || isWicketPromptRequired || isBowlerChangeRequired || isManualBowlerChange) && (
+                {promptType && (
                   <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="absolute inset-x-0 bottom-0 z-20 glass-card bg-background/95 backdrop-blur-xl border-primary p-4 sm:p-6 shadow-2xl">
                     <div className="flex justify-between items-center mb-4">
-                      <h4 className={cn("text-2xl font-black flex items-center gap-3", (!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? "text-accent" : "text-primary")}>
-                        {(!currentBowler || isBowlerChangeRequired || isManualBowlerChange) ? <RotateCw className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
-                        {!striker ? "Select Striker" : (!nonStriker && !isLMSActive) ? "Select Non-Striker" : isWicketPromptRequired ? "Next Batsman" : "Select Bowler"}
+                      <h4 className={cn("text-2xl font-black flex items-center gap-3", promptType === "bowler" ? "text-accent" : "text-primary")}>
+                        {promptType === "bowler" ? <RotateCw className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
+                        {promptType === "striker"
+                          ? "Select Striker"
+                          : promptType === "non_striker"
+                            ? "Select Non-Striker"
+                            : promptType === "next_batsman"
+                              ? "Next Batsman"
+                              : "Select Bowler"}
                       </h4>
                       {(isManualBowlerChange) && (
                         <button onClick={() => setIsManualBowlerChange(false)} className="p-2 hover:bg-foreground/10 rounded-full transition-colors">
@@ -533,13 +569,13 @@ const Scoring = () => {
                       )}
                     </div>
 
-                    {!striker ? (
+                    {promptType === "striker" ? (
                       <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
-                    ) : (!nonStriker && !isLMSActive) ? (
+                    ) : promptType === "non_striker" ? (
                       <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
-                    ) : (isWicketPending && !isLMSActive) ? (
+                    ) : promptType === "next_batsman" ? (
                       <SelectionList items={availableBatsmen} onSelect={handleSelectNextBatsman} />
-                    ) : (isBowlerChangeRequired || isManualBowlerChange || !currentBowler) ? (
+                    ) : promptType === "bowler" ? (
                       <SelectionList
                         items={currentInnings.bowling_team_players}
                         onSelect={handleSelectBowler}
@@ -551,7 +587,7 @@ const Scoring = () => {
                 )}
               </AnimatePresence>
 
-              <div className={cn("space-y-2 sm:space-y-3", (isInitialSetupRequired || isBowlerChangeRequired || isWicketPending) && "opacity-10 pointer-events-none")}>
+              <div className={cn("space-y-2 sm:space-y-3", shouldBlockScoringControls && "opacity-10 pointer-events-none")}>
                 {extraMode ? (
                   <div className="glass-card p-4 border-2 border-yellow-500/50 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex justify-between items-center mb-4">

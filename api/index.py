@@ -1,8 +1,14 @@
 import os
 import sys
+from pathlib import Path
 
-# Add the backend directory to the path so we can import cricket_backend
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
+BASE_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = BASE_DIR / 'backend'
+
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cricket_backend.settings')
 
 from cricket_backend.wsgi import application
 
