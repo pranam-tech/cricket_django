@@ -81,43 +81,6 @@ Stop servers:
 ./venv/bin/python backend/manage.py createsuperuser
 ```
 
-## Vercel Deployment
-
-This repo is configured for Vercel using:
-
-- `api/index.py` for Django serverless entrypoint
-- `api/requirements.txt` for Python dependencies
-- `vercel.json` for API/static routing
-- Root build script for frontend build output
-
-### 1) Required environment variables (Vercel Project Settings)
-
-- `SECRET_KEY` = strong random secret
-- `DEBUG` = `False`
-- `ALLOWED_HOSTS` = your Vercel domains (comma-separated), e.g. `your-app.vercel.app`
-- `CORS_ALLOWED_ORIGINS` = frontend origin(s), e.g. `https://your-app.vercel.app`
-- `DATABASE_URL` = Postgres connection string
-
-### 2) Deploy
-
-```bash
-vercel
-```
-
-For production:
-
-```bash
-vercel --prod
-```
-
-### 3) Run migrations on production database
-
-After setting `DATABASE_URL`, run migrations against your production DB from a trusted environment:
-
-```bash
-./venv/bin/python backend/manage.py migrate
-```
-
 ## Project Structure
 
 ```text
