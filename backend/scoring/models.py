@@ -1,5 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import User
 import uuid
+
 
 class Tournament(models.Model):
     STATUS_CHOICES = [
@@ -12,6 +14,7 @@ class Tournament(models.Model):
         ('knockout', 'Knockout'),
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    manager = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_tournaments')
     name = models.CharField(max_length=255)
     format = models.CharField(max_length=20, choices=FORMAT_CHOICES, default='league')
     overs_per_match = models.IntegerField(default=20)
@@ -141,3 +144,62 @@ class BallEvent(models.Model):
 
     class Meta:
         ordering = ['timestamp']
+
+
+class UserProfile(models.Model):
+    ADMIN = 'admin'
+    MANAGER = 'manager'
+    SCOREKEEPER = 'scorekeeper'
+    USER = 'user'
+
+    USER_TYPE_CHOICES = [
+        (ADMIN, 'Admin'),
+        (MANAGER, 'Manager'),
+        (SCOREKEEPER, 'Scorekeeper'),
+        (USER, 'User'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default=USER)
+
+    def __str__(self):
+        return f"{self.user.username} ({self.get_user_type_display()})"
+
+    @property
+    def can_manage_tournaments(self):
+        return self.user_type in {self.ADMIN, self.MANAGER}
+
+    @property
+    def can_score_matches(self):
+        return self.user_type in {self.ADMIN, self.SCOREKEEPER}
+
+    @property
+    def can_review_scorekeeper_requests(self):
+        return self.user_type in {self.ADMIN, self.MANAGER}
+
+
+class ScorekeeperRequest(models.Model):
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scorekeeper_requests')
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_scorekeeper_requests')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    message = models.CharField(max_length=255, blank=True)
+    review_note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} scorekeeper request ({self.get_status_display()})"
