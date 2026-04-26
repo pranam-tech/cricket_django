@@ -2,6 +2,9 @@
   "name": "cricket-django-monorepo",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "build": "pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput && npm --prefix frontend ci && npm --prefix frontend run build"
+  },
   "workspaces": [
     "frontend",
     "backend"

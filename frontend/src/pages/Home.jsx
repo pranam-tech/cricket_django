@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { matchApi } from '../api';
-import { Trophy, Plus, Clock, ChevronRight, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Plus, Clock, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 
@@ -31,7 +31,8 @@ const Home = () => {
       await matchApi.delete(id);
       setDeleteConfirm(null);
       fetchMatches();
-    } catch (err) {
+    } catch (error) {
+      console.error(error);
       alert("Failed to delete match");
     }
   };

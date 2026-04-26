@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { matchApi } from '../api';
 import { Trophy, ArrowLeft, Download, Share2, User, Target } from 'lucide-react';
@@ -128,7 +128,7 @@ const Summary = () => {
               <h4 className="text-sm font-black uppercase tracking-widest text-secondary mb-6">Innings Timeline</h4>
               <div className="flex gap-6 overflow-x-auto pb-8 px-1">
                 {currentInn.balls && currentInn.balls.map((ball, idx, arr) => (
-                  <React.Fragment key={ball.id}>
+                  <Fragment key={ball.id}>
                     {(idx === 0 || ball.over_no !== arr[idx-1].over_no) && (
                       <div className="flex gap-4 items-end">
                         {idx > 0 && (
@@ -153,7 +153,7 @@ const Summary = () => {
                         </div>
                       </div>
                     )}
-                  </React.Fragment>
+                  </Fragment>
                 ))}
               </div>
             </section>
