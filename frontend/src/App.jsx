@@ -16,7 +16,9 @@ function App() {
           <Route path="/scoring/:matchId" element={<Scoring />} />
           <Route path="/summary/:matchId" element={<Summary />} />
         </Routes>
-        <ThemeToggle />
+        <div className="hidden sm:block">
+          <ThemeToggle />
+        </div>
       </div>
     </Router>
   );

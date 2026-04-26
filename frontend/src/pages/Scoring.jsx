@@ -329,11 +329,6 @@ const Scoring = () => {
 
   return (
     <div className="max-w-xl mx-auto p-2 sm:p-4 min-h-screen flex flex-col bg-background selection:bg-primary/20 relative overflow-y-auto">
-      <style>{`
-        @media (max-width: 640px) {
-          .theme-toggle { display: none !important; }
-        }
-      `}</style>
       {/* ... (Processing overlay remains) ... */}
 
       <header className="flex justify-between items-center mb-1 sm:mb-4 shrink-0">

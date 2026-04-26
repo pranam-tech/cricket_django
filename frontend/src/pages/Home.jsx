@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { matchApi } from '../api';
 import { Trophy, Plus, Clock, ChevronRight, Trash2, AlertTriangle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ThemeToggle from '../components/ThemeToggle';
 
 const Home = () => {
   const [matches, setMatches] = useState([]);
@@ -54,16 +55,21 @@ const Home = () => {
           </div>
         </motion.div>
 
-        <Link to="/setup">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="glass-button flex items-center gap-2 primary-gradient border-none py-3 px-6"
-          >
-            <Plus className="w-5 h-5" />
-            New Match
-          </motion.button>
-        </Link>
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <Link to="/setup" className="flex-1 sm:flex-none">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="glass-button flex items-center gap-2 primary-gradient border-none py-3 px-6"
+            >
+              <Plus className="w-5 h-5" />
+              New Match
+            </motion.button>
+          </Link>
+          <div className="sm:hidden">
+            <ThemeToggle isInline />
+          </div>
+        </div>
       </header>
 
       <section>
