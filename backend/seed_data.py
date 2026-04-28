@@ -1,16 +1,89 @@
 import os
 import django
-import uuid
-from datetime import timedelta
-from django.utils import timezone
 
 # Set up Django environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cricket_backend.settings')
 django.setup()
 
-from scoring.models import Team, Player, Match, Innings, BattingScore, BowlingScore, BallEvent
+from django.contrib.auth.models import User
+from scoring.models import Team, Player, Match, Innings, BattingScore, BowlingScore, BallEvent, UserProfile
+
+
+DEMO_USERS = [
+    {
+        "username": "demo_admin",
+        "password": "demo12345",
+        "email": "demo_admin@example.com",
+        "first_name": "Demo",
+        "last_name": "Admin",
+        "role": UserProfile.ADMIN,
+        "is_superuser": True,
+        "is_staff": True,
+    },
+    {
+        "username": "demo_manager",
+        "password": "demo12345",
+        "email": "demo_manager@example.com",
+        "first_name": "Demo",
+        "last_name": "Manager",
+        "role": UserProfile.MANAGER,
+        "is_superuser": False,
+        "is_staff": False,
+    },
+    {
+        "username": "demo_scorekeeper",
+        "password": "demo12345",
+        "email": "demo_scorekeeper@example.com",
+        "first_name": "Demo",
+        "last_name": "Scorekeeper",
+        "role": UserProfile.SCOREKEEPER,
+        "is_superuser": False,
+        "is_staff": False,
+    },
+    {
+        "username": "demo_user",
+        "password": "demo12345",
+        "email": "demo_user@example.com",
+        "first_name": "Demo",
+        "last_name": "User",
+        "role": UserProfile.USER,
+        "is_superuser": False,
+        "is_staff": False,
+    },
+]
+
+
+def seed_demo_users():
+    print("Creating demo users...")
+    for entry in DEMO_USERS:
+        user, created = User.objects.get_or_create(
+            username=entry["username"],
+            defaults={
+                "email": entry["email"],
+                "first_name": entry["first_name"],
+                "last_name": entry["last_name"],
+                "is_staff": entry["is_staff"],
+                "is_superuser": entry["is_superuser"],
+            },
+        )
+
+        user.email = entry["email"]
+        user.first_name = entry["first_name"]
+        user.last_name = entry["last_name"]
+        user.is_staff = entry["is_staff"]
+        user.is_superuser = entry["is_superuser"]
+        user.set_password(entry["password"])
+        user.save()
+
+        user.profile.user_type = entry["role"]
+        user.profile.save(update_fields=["user_type"])
+
+        action = "Created" if created else "Updated"
+        print(f"  {action} {entry['username']} ({entry['role']})")
 
 def seed():
+    seed_demo_users()
+
     print("Clearing existing data...")
     Match.objects.all().delete()
     Team.objects.all().delete()

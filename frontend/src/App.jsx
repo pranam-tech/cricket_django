@@ -3,23 +3,57 @@ import Home from './pages/Home';
 import MatchSetup from './pages/MatchSetup';
 import Scoring from './pages/Scoring';
 import Summary from './pages/Summary';
+import Auth from './pages/Auth';
 import ThemeToggle from './components/ThemeToggle';
+import RequireAuth from './components/RequireAuth';
+import { AuthProvider } from './auth';
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/setup" element={<MatchSetup />} />
-          <Route path="/scoring/:matchId" element={<Scoring />} />
-          <Route path="/summary/:matchId" element={<Summary />} />
-        </Routes>
-        <div className="hidden sm:block">
-          <ThemeToggle />
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route
+              path="/"
+              element={
+                <RequireAuth>
+                  <Home />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/setup/:tournamentId"
+              element={
+                <RequireAuth>
+                  <MatchSetup />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/scoring/:matchId"
+              element={
+                <RequireAuth>
+                  <Scoring />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/summary/:matchId"
+              element={
+                <RequireAuth>
+                  <Summary />
+                </RequireAuth>
+              }
+            />
+          </Routes>
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
         </div>
-      </div>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 

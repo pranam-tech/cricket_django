@@ -5,6 +5,21 @@ from .models import BallEvent, BattingScore, BowlingScore, Innings
 def should_credit_bowler_for_wicket(wicket_type):
     return wicket_type not in ['run_out', 'retired_hurt', 'timed_out']
 
+
+def sync_tournament_status(match):
+    tournament = match.tournament
+    if not tournament:
+        return
+
+    statuses = list(tournament.matches.values_list('status', flat=True))
+    if statuses and all(status == 'completed' for status in statuses):
+        tournament.status = 'completed'
+    elif any(status in {'live', 'innings_break'} for status in statuses):
+        tournament.status = 'live'
+    else:
+        tournament.status = 'setup'
+    tournament.save(update_fields=['status'])
+
 def record_ball(innings_id, data):
     """
     Records a ball and updates all related stats atomically.
@@ -230,6 +245,7 @@ def undo_ball(innings_id):
             match.status = 'live'
             match.save()
         innings.save(update_fields=['total_runs', 'total_balls', 'total_extras', 'total_wickets', 'is_completed'])
+        sync_tournament_status(match)
             
         last_ball.delete()
         return True
@@ -257,6 +273,7 @@ def check_match_conclusion(innings):
             match.save()
             innings.is_completed = True
             innings.save()
+            sync_tournament_status(match)
             return
 
     if innings_over:
@@ -278,3 +295,4 @@ def check_match_conclusion(innings):
                 # Tie - winner remains None
                 match.winner = None 
             match.save()
+            sync_tournament_status(match)

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Undo2, Trophy, RotateCw, X, UserPlus, Home, User, Play } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useAuth } from '../auth';
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -26,6 +27,7 @@ function needsIncomingBatsmanSelection(matchState) {
 const Scoring = () => {
   const { matchId } = useParams();
   const navigate = useNavigate();
+  const { canScore, userType } = useAuth();
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -83,6 +85,7 @@ const Scoring = () => {
   }, [loadMatchState]);
 
   const handleStartInnings = async (inningsNo, teamId) => {
+    if (!canScore) return;
     setIsProcessing(true);
     try {
       await matchApi.startInnings(matchId, { innings_no: inningsNo, batting_team_id: teamId });
@@ -96,6 +99,7 @@ const Scoring = () => {
   };
 
   const handleBall = async (runs, extrasType = null, isWicket = false, wicketType = 'out') => {
+    if (!canScore) return;
     if (!striker || (!nonStriker && !isLMSActive) || !currentBowler || isProcessing) return;
 
     // --- OPTIMISTIC UPDATE START ---
@@ -196,6 +200,7 @@ const Scoring = () => {
   };
 
   const handleSelectNextBatsman = async (playerId) => {
+    if (!canScore) return;
     if (isProcessing) return;
     setIsProcessing(true);
     try {
@@ -211,6 +216,7 @@ const Scoring = () => {
   };
 
   const handleSelectBowler = async (playerId) => {
+    if (!canScore) return;
     if (isProcessing) return;
     setIsProcessing(true);
     try {
@@ -227,6 +233,7 @@ const Scoring = () => {
   };
 
   const handleUndo = async () => {
+    if (!canScore) return;
     if (isProcessing || !match?.current_innings_data?.balls?.length) return;
 
     // --- OPTIMISTIC UPDATE START ---
@@ -350,7 +357,7 @@ const Scoring = () => {
         : (isBowlerChangeRequired || isManualBowlerChange || !currentBowler)
           ? 'bowler'
           : null;
-  const shouldBlockScoringControls = Boolean(promptType);
+  const shouldBlockScoringControls = Boolean(promptType) || !canScore;
 
   // Identify restricted bowler (who bowled the previous over)
   const currentOverNo = Math.floor((currentInnings?.total_balls || 0) / 6);
@@ -374,10 +381,16 @@ const Scoring = () => {
             <span className="text-[10px] uppercase font-black text-foreground tracking-widest">{match.status}</span>
           </div>
         </div>
-        <button onClick={handleUndo} className="p-2 glass rounded-lg text-secondary hover:text-foreground transition-colors">
+        <button onClick={handleUndo} disabled={!canScore} className="p-2 glass rounded-lg text-secondary hover:text-foreground transition-colors disabled:opacity-30">
           <Undo2 className="w-5 h-5" />
         </button>
       </header>
+
+      {!canScore && (
+        <div className="glass-card mb-3 border border-primary/20 bg-primary/10 p-3 text-sm text-secondary">
+          You are signed in as <span className="text-foreground font-bold capitalize">{userType}</span>. This view is live and watch-only for your role.
+        </div>
+      )}
 
       {match.status !== 'completed' && (
         <div className="flex bg-foreground/5 p-1 rounded-2xl mb-1 sm:mb-4 border border-foreground/10 shrink-0">
@@ -428,14 +441,14 @@ const Scoring = () => {
                 <>
                   <h3 className="text-2xl font-black mb-2">Innings Break</h3>
                   <p className="text-secondary text-sm mb-10">Target: <span className="text-foreground font-black text-xl">{currentInnings?.total_runs + 1}</span></p>
-                  <button onClick={() => handleStartInnings(2, currentInnings.bowling_team)} className="w-full glass-button py-5 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20">Start 2nd Innings</button>
+                  <button onClick={() => handleStartInnings(2, currentInnings.bowling_team)} disabled={!canScore} className="w-full glass-button py-5 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20 disabled:opacity-40">Start 2nd Innings</button>
                 </>
               ) : (
                 <>
                   <h3 className="text-2xl font-black mb-10">Start Match</h3>
                   <div className="grid grid-cols-1 gap-4">
-                    <button onClick={() => handleStartInnings(1, match.team1)} className="glass-button py-5 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20">{match.team1_name} Bats</button>
-                    <button onClick={() => handleStartInnings(1, match.team2)} className="glass-button py-5 accent-gradient border-none font-black text-lg shadow-xl shadow-accent/20">{match.team2_name} Bats</button>
+                    <button onClick={() => handleStartInnings(1, match.team1)} disabled={!canScore} className="glass-button py-5 primary-gradient border-none font-black text-lg shadow-xl shadow-primary/20 disabled:opacity-40">{match.team1_name} Bats</button>
+                    <button onClick={() => handleStartInnings(1, match.team2)} disabled={!canScore} className="glass-button py-5 accent-gradient border-none font-black text-lg shadow-xl shadow-accent/20 disabled:opacity-40">{match.team2_name} Bats</button>
                   </div>
                 </>
               )}
@@ -532,6 +545,7 @@ const Scoring = () => {
                     <p className="text-[8px] text-secondary font-black uppercase tracking-widest">Bowler</p>
                     <button
                       onClick={() => setIsManualBowlerChange(true)}
+                      disabled={!canScore}
                       className="px-1.5 py-0.5 bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded text-[7px] font-black text-accent uppercase tracking-tighter transition-all"
                     >
                       Change

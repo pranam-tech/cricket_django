@@ -1,5 +1,39 @@
 from django.contrib import admin
-from .models import Tournament, Team, Player, Match, Innings, BattingScore, BowlingScore, BallEvent
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+
+from .models import (
+    Tournament,
+    Team,
+    Player,
+    Match,
+    Innings,
+    BattingScore,
+    BowlingScore,
+    BallEvent,
+    UserProfile,
+    ScorekeeperRequest,
+)
+
+
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    extra = 0
+    fields = ('user_type',)
+
+
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    inlines = (UserProfileInline,)
+    list_display = BaseUserAdmin.list_display + ('get_user_type',)
+
+    @admin.display(description='User type')
+    def get_user_type(self, obj):
+        return getattr(obj.profile, 'get_user_type_display', lambda: '-')()
 
 @admin.register(Tournament)
 class TournamentAdmin(admin.ModelAdmin):
@@ -42,3 +76,17 @@ class BowlingScoreAdmin(admin.ModelAdmin):
 class BallEventAdmin(admin.ModelAdmin):
     list_display = ('innings', 'over_no', 'bowler', 'striker', 'runs_scored', 'extras_type', 'is_wicket')
     list_filter = ('is_wicket', 'extras_type')
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'user_type')
+    list_filter = ('user_type',)
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+
+
+@admin.register(ScorekeeperRequest)
+class ScorekeeperRequestAdmin(admin.ModelAdmin):
+    list_display = ('user', 'status', 'reviewed_by', 'created_at', 'updated_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('user__username', 'user__email', 'message', 'review_note')
