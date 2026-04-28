@@ -11,17 +11,22 @@ def env_bool(name, default=False):
         return default
     return value.lower() in {"1", "true", "yes", "on"}
 
+
+def env_list(name, default=""):
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-default-key-for-dev')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=True)
 
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-    if host.strip()
-]
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+VERCEL_URL = os.environ.get('VERCEL_URL', '').strip()
+if VERCEL_URL:
+    ALLOWED_HOSTS.append(VERCEL_URL)
+if '.vercel.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('.vercel.app')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -91,11 +96,11 @@ if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOW_CREDENTIALS = True
 else:
-    CORS_ALLOWED_ORIGINS = [
-        origin.strip()
-        for origin in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
-        if origin.strip()
-    ]
+    CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', '')
+    if VERCEL_URL:
+        vercel_origin = f'https://{VERCEL_URL}'
+        if vercel_origin not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(vercel_origin)
     CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
