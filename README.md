@@ -81,6 +81,30 @@ Stop servers:
 ./venv/bin/python backend/manage.py createsuperuser
 ```
 
+## CI/CD with GitHub Actions
+
+This repository now includes two GitHub Actions workflows:
+
+- `.github/workflows/ci.yml`
+  - Runs on pull requests and pushes to `main`/`master`
+  - Backend: installs `backend/requirements.txt` and runs `python backend/manage.py test`
+  - Frontend: runs `npm --prefix frontend ci`, `npm --prefix frontend run lint`, and `npm --prefix frontend run build`
+
+- `.github/workflows/cd.yml`
+  - Triggers automatically when the `CI` workflow succeeds on `main`/`master`
+  - Also supports manual trigger from GitHub Actions (`workflow_dispatch`)
+  - Deploys production build to Vercel using Vercel CLI
+
+### Required GitHub Secrets
+
+Add the following repository secrets before using CD:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+Recommended: use branch protection so merge is allowed only after `CI` passes.
+
 ## Project Structure
 
 ```text
