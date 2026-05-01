@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Plus, Settings, User, Users, X } from 'lucide-react';
 import { matchApi, tournamentApi } from '../api';
-import { useAuth } from '../auth';
+import { useAuth } from '../auth-context';
 
 const MatchSetup = () => {
   const { tournamentId } = useParams();

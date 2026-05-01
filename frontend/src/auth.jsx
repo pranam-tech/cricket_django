@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { authApi, getStoredToken, setAuthToken } from './api';
-
-const AuthContext = createContext(null);
+import { AuthContext } from './auth-context';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -10,7 +9,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = getStoredToken();
     if (!token) {
-      setLoading(false);
       return;
     }
 
@@ -40,7 +38,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await authApi.logout();
-    } catch (_) {
+    } catch {
       // Token may already be invalid; local cleanup is still enough.
     }
     setAuthToken(null);
@@ -71,12 +69,4 @@ export const AuthProvider = ({ children }) => {
   }, [user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
 };

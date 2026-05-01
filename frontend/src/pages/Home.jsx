@@ -13,7 +13,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { matchApi, scorekeeperRequestApi, tournamentApi } from '../api';
-import { useAuth } from '../auth';
+import { useAuth } from '../auth-context';
 import ThemeToggle from '../components/ThemeToggle';
 
 const roleLabel = {
@@ -39,7 +39,6 @@ const Home = () => {
   });
 
   const loadDashboard = async () => {
-    setLoading(true);
     try {
       const [matchesRes, tournamentsRes, requestsRes] = await Promise.all([
         matchApi.list(),
@@ -57,7 +56,10 @@ const Home = () => {
   };
 
   useEffect(() => {
-    loadDashboard();
+    const fetchDashboard = async () => {
+      await loadDashboard();
+    };
+    fetchDashboard();
   }, []);
 
   const pendingOwnRequest = useMemo(
@@ -353,7 +355,7 @@ const EmptyState = ({ text }) => (
 
 const LoadingStack = ({ count }) => (
   <div className="space-y-4">
-    {Array.from({ length: count }).map((_, index) => (
+    {[...Array(count).keys()].map((index) => (
       <div key={index} className="glass-card h-32 animate-pulse" />
     ))}
   </div>

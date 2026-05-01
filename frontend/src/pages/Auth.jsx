@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAuth } from '../auth';
+import { useAuth } from '../auth-context';
 
 const initialRegister = {
   username: '',

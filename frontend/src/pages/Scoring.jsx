@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Undo2, Trophy, RotateCw, X, UserPlus, Home, User, Play } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { useAuth } from '../auth';
+import { useAuth } from '../auth-context';
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
